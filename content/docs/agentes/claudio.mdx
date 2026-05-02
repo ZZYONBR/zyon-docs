@@ -1,0 +1,56 @@
+---
+title: Cláudio
+description: Agente de atendimento WhatsApp + roteamento de intent
+---
+
+**Cláudio** é o agente front-line de atendimento. Recebe mensagens via Evolution API
+(WhatsApp Business) e roteia para a stack certa baseado em intent classificado.
+
+## Pipeline
+
+```
+WhatsApp (cliente) → Evolution API → claudio-api (PM2)
+  ↓
+classify_intent (Haiku 4.5)        ← classificação rápida e barata
+  ↓
+[ atendimento | tracking | reclamação | escalação ]
+  ↓
+generate_response (Sonnet 4.6)     ← resposta com contexto
+  ↓
+WhatsApp (cliente)
+```
+
+## Modelos usados
+
+| Etapa | Modelo | Por quê |
+|---|---|---|
+| `classify_intent` | claude-haiku-4-5-20251001 | Tarefa simples, alto volume — Haiku é 3x mais barato que Sonnet |
+| `generate_response` | claude-sonnet-4-6 | Precisa contexto + tom + dados ESL — Sonnet entrega qualidade |
+| escalação C1/VIP | claude-sonnet-4-6 | Severidade alta exige raciocínio mais cuidadoso |
+
+## Onde roda
+
+- **Processo PM2**: `claudio-api` no Mac mini (`100.65.23.99`)
+- **Código**: [`zyon-agents/claudio/`](https://github.com/ZZYONBR/zyon-agents/tree/main/claudio)
+- **Health check**: `http://100.65.23.99:8001/health`
+- **Logs**: `pm2 logs claudio-api`
+
+## Observabilidade
+
+Todas as chamadas LLM passam por Langfuse com tags:
+
+- `agent=claudio`
+- `task=classify_intent` ou `task=generate_response`
+- `fallback_used=true|false`
+
+Painel ao vivo: [Torre de Saúde](https://saude.zzyon.com) → aba "Modelos & Custos" filtra por `claudio`.
+
+## Custos típicos
+
+Para 100 mensagens/dia (média histórica Ícaro Express):
+
+- 100 × classify (Haiku) = ~$0.05/dia
+- ~60 × response (Sonnet) = ~$0.30/dia
+- **Total: ~$0.35/dia ≈ $10/mês**
+
+(Sem Haiku, custo seria ~$0.50/dia → economia ~$135/ano só nessa otimização.)

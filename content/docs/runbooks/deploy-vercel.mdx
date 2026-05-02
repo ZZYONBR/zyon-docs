@@ -1,0 +1,68 @@
+---
+title: Deploy Vercel (workaround --prebuilt)
+description: Como fazer deploy das torres ZZYON quando o build remoto do Vercel falha
+---
+
+## Sintoma
+
+Após `vercel deploy --prod`, o deploy entra em estado `ERROR` instantaneamente, sem
+build logs (`buildingAt` e `ready` no mesmo timestamp). O comando devolve:
+
+```json
+{
+  "status": "error",
+  "reason": "deploy_failed",
+  "message": ""
+}
+```
+
+Não é problema do código — `npm run build` localmente roda limpo.
+
+## Causa provável
+
+Next.js 16 + Turbopack flaky no builder hosted do Vercel para esta conta/projeto.
+Confirmado em `zyon-saude` (descobrimos em 2026-05-02).
+
+## Workaround: deploy --prebuilt
+
+Build localmente e suba só os artefatos prontos:
+
+```bash
+cd /caminho/para/zyon-saude
+npx --yes vercel@latest build --prod
+npx --yes vercel@latest deploy --prebuilt --prod --yes
+```
+
+Tempo total: ~30s para build + ~15s para upload.
+
+## Script de automação
+
+Crie `deploy.sh` na raiz do projeto:
+
+```bash
+#!/bin/bash
+set -e
+echo "Building locally..."
+npx --yes vercel@latest build --prod
+echo "Deploying prebuilt..."
+npx --yes vercel@latest deploy --prebuilt --prod --yes
+```
+
+`chmod +x deploy.sh` e rode `./deploy.sh`.
+
+## Quando voltar pro fluxo normal
+
+Tentar `vercel deploy --prod` (sem `--prebuilt`) depois de:
+
+- Vercel atualizar suporte a Next 16 stable
+- Mudar `next.config.ts` removendo Turbopack
+- Conta upgrade de plano (se for limite de quota)
+
+## Troubleshooting
+
+Se `--prebuilt` também falhar, checar:
+
+1. `vercel whoami` — auth válida?
+2. `.vercel/project.json` aponta pro projectId certo?
+3. Quota Vercel não estourou? Ver dashboard.
+4. Pasta `.vercel/output/` foi gerada pelo build local?

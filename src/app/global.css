@@ -1,0 +1,48 @@
+@import 'tailwindcss';
+@import 'fumadocs-ui/css/neutral.css';
+@import 'fumadocs-ui/css/preset.css';
+
+:root {
+  --zzy-blue: #122149;
+  --zzy-blue-light: #2a3f7a;
+  --zzy-gold: #b9892d;
+  --zzy-gold-light: #d4a13d;
+  --zzy-bg: #0a0f1f;
+  --zzy-text: #e8eaf0;
+  --zzy-text-mute: #8a92a8;
+  --zzy-border: rgba(255, 255, 255, 0.08);
+}
+
+:root,
+.dark {
+  --color-fd-primary: var(--zzy-gold);
+  --color-fd-accent: var(--zzy-gold);
+  --color-fd-accent-foreground: #0a0f1f;
+}
+
+.dark {
+  --color-fd-background: var(--zzy-bg);
+  --color-fd-foreground: var(--zzy-text);
+  --color-fd-muted: rgba(255, 255, 255, 0.04);
+  --color-fd-muted-foreground: var(--zzy-text-mute);
+  --color-fd-border: var(--zzy-border);
+  --color-fd-card: #0f1530;
+  --color-fd-card-foreground: var(--zzy-text);
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+.zzy-eyebrow {
+  font-size: 11px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--zzy-gold);
+  font-weight: 600;
+}

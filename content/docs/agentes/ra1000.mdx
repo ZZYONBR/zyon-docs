@@ -1,0 +1,76 @@
+---
+title: RA1000
+description: Agente Reclame Aqui — varredura, replica, escalação automática
+---
+
+**RA1000** monitora o perfil Ícaro Express no Reclame Aqui, classifica reclamações,
+roteia pro líder de filial certo via WhatsApp, e escala automaticamente se ninguém
+responder em 1h/3h/6h.
+
+## Fluxo de dados
+
+```
+SKILLs RA (07h, 09h, 10h, 13h, 17h, 20h)
+  ↓ scraping (Claude in Chrome MCP)
+SUPPLEMENT_DD-MM-YYYY_HHh.xlsx
+  ↓
+sync_xlsx_to_supabase.py
+  ↓ POST
+ra-sync-xlsx (edge fn v2)
+  ↓ batch upsert
+┌─────────────────────────┬────────────────────────────┐
+│ reclamacoes_ra (legacy) │ cs_ra_reclamacoes (RA1000) │
+│   ↓                     │   ↓                        │
+│ vw_ra_monitor           │ vw_cs_ra_pulso_hoje + 5    │
+│   ↓                     │   ↓                        │
+│ ra.zzyon.com Tratativa  │ ra.zzyon.com RA1000        │
+└─────────────────────────┴────────────────────────────┘
+```
+
+## Roteamento por filial
+
+Função SQL `cs_ra_find_lider(uf, cidade)` retorna o líder responsável usando 7 regras:
+
+| UF / Cidade | Líder | WhatsApp |
+|---|---|---|
+| SC (Joinville) | Jimmy | +5547988146171 |
+| PR (Curitiba) | Gabriel | configurado |
+| SP (Campinas) | Emerson | configurado |
+| SP (São Paulo) | Davi | configurado |
+| RJ | Rafael | configurado |
+| MG | Renato | +5531991168906 |
+| **fallback** | **Kevin** | **+5547997571032** |
+
+Escalação 1h sem resposta → Rubens.
+
+## Escalação automática
+
+Edge function `cs-ra-escalation` (cron `*/15 * * * *`) escala alertas pendentes:
+
+- Sem resposta em **1h** → notifica Rubens
+- Sem resposta em **3h** → notifica Rubens + Hélio
+- Sem resposta em **6h** → escalação total
+
+## Edge functions ativas
+
+| Função | Versão | Papel |
+|---|---|---|
+| `ra-upsert` | v2 | Upsert single reclamação |
+| `cs-ra-router` | v2 | Roteia WhatsApp pro líder |
+| `ra-sync-xlsx` | v2 | Batch upsert XLSX → 2 tabelas |
+| `cs-ra-escalation` | v1 | Cron escalação 1h/3h |
+| `ra-vault-helper` | impl. | `fn_get_vault_secret` |
+
+## Volume atual
+
+- 119 reclamações em `reclamacoes_ra` (legacy)
+- 64 em `cs_ra_reclamacoes` (canonical)
+- 5 SKILLs ativos com auto-sync
+- Pipeline 100% funcional desde 2026-05-01
+
+## Onde está
+
+- **SKILLs**: `~/.claude/scheduled-tasks/reclameaqui-*` no Mac mini
+- **Migrations**: [`zyon-agents/ra1000/migrations/`](https://github.com/ZZYONBR/zyon-agents/tree/main/ra1000/migrations)
+- **Edge functions**: [`zyon-agents/ra1000/edge-functions/`](https://github.com/ZZYONBR/zyon-agents/tree/main/ra1000/edge-functions)
+- **Painel**: [ra.zzyon.com](https://ra.zzyon.com)

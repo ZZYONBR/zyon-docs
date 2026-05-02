@@ -1,0 +1,49 @@
+---
+title: Torre de Saúde
+description: Observabilidade da plataforma ZZYON em tempo real
+---
+
+URL: [saude.zzyon.com](https://saude.zzyon.com)
+
+A **Torre de Saúde** é o painel mestre de observabilidade. Mostra em tempo real:
+
+- Saúde dos agentes (PM2, claudio-api, etc.)
+- Conexões WhatsApp (Evolution API)
+- Containers Docker e disco do Mac mini
+- Traces e custos LLM (via Langfuse)
+- Fluxo animado entre as APIs (WhatsApp → Evolution → Cláudio → Anthropic → Supabase)
+
+## Abas
+
+| # | Aba | Conteúdo |
+|---|---|---|
+| 01 | Saúde | Visão geral: agentes, WhatsApp, infra, traces |
+| 02 | Modelos & Custos | Multi-LLM por modelo/agente, orçamento, fallbacks |
+| 03 | Tarifador | Simulação de fretes |
+| 04 | Frota | Status WhatsApp Frota + eventos GPS |
+| 05 | Mensageria | (em breve) |
+
+## Aba Modelos & Custos
+
+Endpoint: `/api/models` agrega observations do Langfuse dos últimos 30 dias.
+
+Mostra:
+
+- **Totais**: chamadas hoje/30d, custo USD, fallbacks
+- **Por modelo**: Haiku, Sonnet, Opus, Gemini, GPT-4o — com tokens, custo e latência
+- **Por agente**: claudio, ra1000, roberval — com mix de modelos usados
+- **Recomendações**: ex. "agente classify usa Sonnet em 12 calls — economia $0.05 trocando pra Haiku"
+- **Últimos 10 traces**: nome, modelo, custo, fallback?
+
+Refresh automático a cada 30s.
+
+## Stack
+
+- Next.js 16 + Tailwind v4
+- Vercel hosting
+- Deploy via `vercel build && vercel deploy --prebuilt --prod`
+- DNS: `saude.zzyon.com` CNAME → `cname.vercel-dns.com`
+
+## Repo
+
+[ZZYONBR/zyon-saude](https://github.com/ZZYONBR/zyon-saude)

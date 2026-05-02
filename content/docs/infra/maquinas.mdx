@@ -1,0 +1,69 @@
+---
+title: Máquinas e Rede
+description: Setup multi-máquina ZZYON via Tailscale (MacBook Pro + Mac mini)
+---
+
+## Topologia
+
+| Host | Hostname | Tailscale IP | Papel |
+|---|---|---|---|
+| MacBook Pro | `rubens2` | `100.91.78.47` | Desenvolvimento, edits, deploys |
+| Mac mini | `rubens` | `100.65.23.99` | Produção 24/7, agentes, banco self-hosted |
+
+Conectados via **Tailscale**. SSH passwordless de MacBook → Mac mini.
+
+> Nunca usar `localhost` em `.env` — sempre IPs Tailscale. Apps cross-machine
+> dependem dessa convenção pra funcionar.
+
+## O que roda em cada máquina
+
+### MacBook Pro (`rubens2`)
+- Edição de código (Claude Code, VSCode)
+- Vercel CLI deploys
+- Build + push pra GitHub
+- Esta documentação
+
+### Mac mini (`rubens`)
+- **PM2 processos**:
+  - `claudio-api` — agente Cláudio (porta 8001)
+  - `zyon-saude` — Torre de Saúde dev (porta 3001, fallback ao Vercel)
+- **Docker containers**:
+  - `langfuse-server` (porta 3000) — observabilidade self-hosted
+  - `langfuse-postgres`, `langfuse-clickhouse`, `langfuse-redis`
+  - `evolution-api` — WhatsApp Business
+  - Supabase self-hosted (backup do Cloud)
+- **Anthropic Scheduled Tasks**: SKILLs RA, Frota, Briefing rodam aqui via Claude Code
+
+## Redes externas
+
+- **Cloudflare Tunnel**: expõe Evolution API + outros serviços via URL pública
+- **Tailscale Funnel**: alternativa pra exposição segura quando precisa
+- **Vercel**: hosting de todas as torres `*.zzyon.com`
+- **Google Cloud DNS**: `zzyon.com` → records apontam pra Vercel
+
+## Domínios públicos
+
+```
+zzyon.com               → Vercel (76.76.21.21)
+www.zzyon.com           → Vercel
+saude.zzyon.com         → Vercel (zyon-saude project)
+ra.zzyon.com            → Vercel (torre-ra project)
+frota.zzyon.com         → Vercel (torre-frota project)
+controladoria.zzyon.com → Vercel (torre-controladoria project)
+cargas.zzyon.com        → Vercel (torre-cargas project)
+inbox.zzyon.com         → Vercel (torre-inbox project)
+briefing.zzyon.com      → Vercel (torre-briefing project)
+comercial.zzyon.com     → Vercel (torre-comercial project)
+docs.zzyon.com          → Vercel (zyon-docs project) ← este site
+```
+
+## Credenciais e secrets
+
+| Secret | Onde | Uso |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | `.env` em ambas máquinas | LLM calls |
+| `GEMINI_API_KEY` | `.env` em ambas máquinas | Fallback |
+| `OPENAI_API_KEY` | `.env` em ambas máquinas | Whisper, GPT-4o |
+| `RA_INGEST_TOKEN` | `~/.zshrc` Mac mini + Supabase Vault | Auth ra-sync-xlsx |
+| `EVOLUTION_API_KEY` | `.env` Mac mini | WhatsApp |
+| Supabase Service Role | Vault Supabase | Edge functions |

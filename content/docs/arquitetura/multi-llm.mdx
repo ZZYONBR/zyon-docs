@@ -1,0 +1,60 @@
+---
+title: Multi-LLM Router
+description: Como o ZZYON escolhe modelo + faz fallback automático entre Anthropic, Google, OpenAI e Perplexity
+---
+
+## Visão geral
+
+Todo agente ZYON fala com LLM via `core/llm_client.complete(task, ...)` em `zyon-agents/`.
+A função delega ao `core/llm_router.route(task, context)` para decidir:
+
+- **Qual modelo** usar (Haiku, Sonnet, Opus, Gemini Flash/Pro, GPT-4o, Sonar)
+- **Qual provider** (anthropic, google, openai, perplexity)
+- **Caching** ativo? TTL 5m ou 1h?
+- **Batch API** (50% off para tarefas não-realtime)
+- **Fallback chain** se principal falhar
+
+## Tabela de roteamento
+
+| Tarefa | Modelo principal | Fallback | Custo/call |
+|---|---|---|---|
+| `classification` (intent, severidade) | claude-haiku-4-5 | gemini-2.5-flash | ~$0.0005 |
+| `extraction` (dados estruturados) | claude-haiku-4-5 | gemini-2.5-flash | ~$0.0005 |
+| `response_simple` (FAQ) | claude-sonnet-4-6 | gemini-2.5-pro | ~$0.005 |
+| `response_contextual` (com histórico) | claude-sonnet-4-6 | gemini-2.5-pro | ~$0.005 |
+| `reasoning_critical` (parecer jurídico) | claude-opus-4-7 | gpt-4o | ~$0.30 |
+| `ocr_image` | gemini-2.5-flash | claude-sonnet-4-6 | ~$0.0008 |
+| `audio_transcribe` | whisper-1 | — | ~$0.006 |
+| `research_web` | sonar-large-online | claude-sonnet-4-6 | ~$0.005 |
+| `code` | claude-sonnet-4-6 | — | ~$0.01 |
+
+VIP / severidade C1 escala automaticamente para Sonnet com prompt reforçado.
+
+## Pricing (USD por 1M tokens)
+
+```
+claude-haiku-4-5      $1.0  in / $5.0  out / $0.10 cache_read
+claude-sonnet-4-6     $3.0  in / $15.0 out / $0.30 cache_read
+claude-opus-4-7       $15.0 in / $75.0 out / $1.50 cache_read
+gemini-2.5-flash      $0.10 in / $0.40 out
+gemini-2.5-pro        $1.25 in / $5.0  out
+gemini-2.5-flash-lite $0.05 in / $0.20 out
+gpt-4o                $2.50 in / $10.0 out
+```
+
+## Fallback automático
+
+Se o provider principal devolver `RateLimitError`, `APIConnectionError`, `AuthenticationError`
+ou qualquer exceção, o `complete()` itera pela `fallback_chain` no `LLMConfig`. O `LLMResult`
+retornado tem:
+
+- `fallback_used: bool` — se serviu via fallback
+- `fallback_chain_attempted: list[str]` — modelos tentados em ordem
+- Trace no Langfuse com tag `fallback=true`
+
+## Onde está
+
+- `zyon-agents/core/llm_router.py` — função `route()`
+- `zyon-agents/core/llm_client.py` — função `complete()`, providers, pricing
+- `zyon-saude/src/app/api/models/route.ts` — agregação por modelo/agente
+- Painel: [Torre de Saúde → aba Modelos & Custos](https://saude.zzyon.com)
