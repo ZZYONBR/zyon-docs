@@ -1,0 +1,114 @@
+---
+title: doc-auditor (semanal)
+description: Agente que mantém docs.zzyon.com em sincronia com o código — detecta drift, propõe patches, abre PR
+---
+
+## O que é
+
+`doc-auditor-weekly` é uma SKILL que roda **toda semana** (domingo 09:00 BRT) e
+faz o seguinte:
+
+1. Coleta os commits dos últimos 7 dias em todos os repos `ZZYONBR/*`
+2. Cruza os arquivos de código tocados com a árvore de docs em `zyon-docs/content/docs/`
+3. Identifica quais páginas estão em **drift** (código mudou, doc não)
+4. Para cada página em drift, **propõe um patch** via LLM (Sonnet 4.6)
+5. Abre **um PR** em `ZZYONBR/zyon-docs` com todos os patches juntos
+6. Notifica Rubens via WhatsApp com o link do PR
+
+**Aprovação humana é obrigatória.** O PR nunca faz auto-merge — alguém revisa,
+ajusta se preciso, e merge.
+
+## Por que existe
+
+Documentação técnica decai porque ninguém tem incentivo pra atualizá-la junto
+com o código. O custo é silencioso: 6 meses depois, metade da doc está
+desatualizada e ninguém confia mais nela.
+
+O auditor inverte o ônus: por padrão, todo código mudado tem revisão de doc
+proposta automaticamente. Quem revisa só precisa **aceitar ou rejeitar** —
+nunca **lembrar de escrever**.
+
+## Mapeamento código → doc
+
+Heurística simples por path-prefix. Definida em
+`scripts/doc_auditor/detect_doc_drift.py:CODE_TO_DOC_MAP`:
+
+| Repo | Path code | Doc page |
+|---|---|---|
+| zyon-agents | `core/llm_router.py` | `arquitetura/multi-llm.mdx` |
+| zyon-agents | `core/llm_client.py` | `arquitetura/multi-llm.mdx` |
+| zyon-agents | `claudio/` | `agentes/claudio.mdx` |
+| zyon-agents | `ra1000/` | `agentes/ra1000.mdx` |
+| zyon-saude | `src/components/ModelosTab.tsx` | `torres/saude.mdx` |
+| zyon-saude | `src/app/api/models/` | `torres/saude.mdx` |
+| zyon-saude | `src/` (catch-all) | `torres/saude.mdx` |
+
+Primeira regra que casa vence — use prefixos mais específicos antes.
+
+Arquivos que não casam com nenhuma regra entram em `uncovered_files` no relatório
+final, sinalizando que falta doc OU falta mapping.
+
+## Stack técnica
+
+```
+SKILL.md (instruções pro Claude)
+  ↓ orquestra
+gather_repo_diffs.py    ← clone/pull repos, extrai diffs da semana
+  ↓
+detect_doc_drift.py     ← cruza com mapeamento, classifica status
+  ↓
+core.llm_client.complete(task="code", ...)  ← Sonnet 4.6 propõe patches
+  ↓
+git checkout -b doc-auditor/YYYY-WXX + commit + push
+  ↓
+gh pr create
+  ↓
+Evolution API → WhatsApp Rubens
+```
+
+## Custos esperados
+
+Baseado em uso interno típico:
+
+- **Semana silenciosa** (sem código novo): $0 — sai sem chamar LLM
+- **Semana normal** (5-15 commits, 2-3 páginas em drift): ~$0.05-0.15
+- **Semana intensa** (release, refactor grande): ~$0.30-0.80
+
+Cap de segurança: cada chamada LLM tem `max_tokens=4096`. Acima de
+`$1.00/semana`, alertar pra rotacionar pra Haiku ou afinar `CODE_TO_DOC_MAP`.
+
+## Onde está
+
+- **SKILL**: `~/.claude/scheduled-tasks/doc-auditor-weekly/SKILL.md`
+- **Helpers**: [zyon-docs/scripts/doc_auditor/](https://github.com/ZZYONBR/zyon-docs/tree/main/scripts/doc_auditor)
+  - `gather_repo_diffs.py`
+  - `detect_doc_drift.py`
+- **Cron**: cadastrado no painel Anthropic Scheduled Tasks como `0 9 * * 0`
+- **Output JSONs**: `/tmp/doc_auditor_*.json` no Mac mini (descartáveis)
+- **Relatórios**: `/Users/rubens/Desktop/RELATORIOS_AUTOMACAO/RELATORIO_EXECUCAO_doc-auditor_*.md`
+
+## Quando intervir manualmente
+
+| Cenário | Ação |
+|---|---|
+| Documentação nova (ex: `/operacoes/frota`) criada manualmente | Adicionar mapping em `CODE_TO_DOC_MAP` no próximo commit |
+| Página deletada/renomeada | Atualizar mapping; auditor vai sinalizar `missing` no próximo run |
+| LLM propôs patch errado várias semanas seguidas | Refinar prompt do `system` no Passo 3 do SKILL |
+| Auditor não está rodando | Verificar painel Anthropic Scheduled Tasks; rodar manualmente: `python3 ~/.claude/scheduled-tasks/doc-auditor-weekly/run.sh` (ou simular passos da SKILL) |
+
+## Limitações conhecidas
+
+1. **Mapeamento é estático.** Mover código entre paths sem atualizar
+   `CODE_TO_DOC_MAP` faz o auditor perder cobertura silenciosamente.
+   Mitigação: relatório lista `uncovered_files` toda semana.
+
+2. **LLM pode propor patches sutilmente errados.** Por isso aprovação humana
+   é mandatória. Nunca auto-merge.
+
+3. **Diff truncado em 400 linhas/commit.** Mudanças muito grandes podem perder
+   contexto. Em geral, mudanças >400 linhas merecem doc dedicada de qualquer
+   forma — o auditor vai sinalizar mas o autor humano deve escrever.
+
+4. **Não cobre conteúdo "narrativo" da doc** (ex: "por que existe", "tradeoffs").
+   Isso é intencional: prosa estratégica é trabalho humano. O auditor cuida só
+   das partes factuais (tabelas, schemas, modelos, endpoints, comandos).
