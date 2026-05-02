@@ -1,0 +1,88 @@
+---
+title: Quickstart
+description: Comece aqui — onde estão as coisas, quem faz o quê, primeiros passos
+---
+
+Se você é novo na plataforma ZZYON, aqui está o mapa em 5 minutos.
+
+## O que existe
+
+```
+ZZYON
+├── 8 Torres (frontends Next.js)
+│   └── saude · ra · frota · controladoria · cargas · inbox · briefing · comercial
+├── 3 Agentes IA (Python no Mac mini)
+│   └── claudio · ra1000 · roberval
+├── Infraestrutura
+│   ├── Mac mini 24/7 (agentes, Langfuse, Evolution, Supabase self-hosted)
+│   ├── MacBook Pro (dev, conectado via Tailscale)
+│   ├── Vercel (hosting torres)
+│   └── Supabase Cloud (banco canonical)
+└── Esta documentação (você está aqui)
+```
+
+## Mapa de quando ir aonde
+
+| Você quer... | Vá em |
+|---|---|
+| Entender uma torre específica | [Torres](/docs/torres/saude) |
+| Adicionar um modelo LLM novo | [Multi-LLM Router](/docs/arquitetura/multi-llm) |
+| Saber como Cláudio responde clientes | [Agente Cláudio](/docs/agentes/claudio) |
+| Investigar drift entre código e doc | [doc-auditor](/docs/automacao/doc-auditor) |
+| Entender por que escolhemos X em vez de Y | [Decisões/ADRs](/docs/decisoes) |
+| Fazer deploy de uma torre | [Runbook deploy Vercel](/docs/runbooks/deploy-vercel) |
+| Saber o IP do Mac mini | [Infra/Máquinas](/docs/infra/maquinas) |
+
+## Setup mínimo pra desenvolver
+
+1. **Clone o repo** que você precisa de `ZZYONBR/`
+2. **Instale Tailscale** e peça acesso ao tailnet (Rubens libera)
+3. **Configure `.env`** copiando de `.env.example` — para serviços remotos use IPs Tailscale (`100.x.x.x`), nunca `localhost`
+4. **Para mexer em agentes**: `cd zyon-agents && python3 -m venv .venv && source .venv/bin/activate && pip install -r requirements.txt`
+5. **Para mexer em torres**: `cd zyon-saude && npm install && npm run dev`
+
+## Primeiros comandos úteis
+
+```bash
+# Status dos processos PM2 no Mac mini
+ssh rubens@100.65.23.99 'pm2 status'
+
+# Logs em tempo real do Cláudio
+ssh rubens@100.65.23.99 'pm2 logs claudio-api'
+
+# Rodar uma SKILL manualmente (pra testar)
+ssh rubens@100.65.23.99 'cat ~/.claude/scheduled-tasks/<skill-name>/SKILL.md'
+# (depois disparar via Claude Code seguindo as instruções do SKILL)
+
+# Ver custos LLM da semana
+curl -s https://saude.zzyon.com/api/models | jq '.totals'
+```
+
+## Fluxo de mudança típico
+
+```
+Edit no MacBook Pro (rubens2)
+   ↓
+git commit → push pra ZZYONBR/<repo>
+   ↓
+Pra torres: vercel deploy --prebuilt --prod  (workaround do Next 16)
+Pra agentes: rsync pro Mac mini + restart PM2 OU re-run da SKILL
+   ↓
+Validar em produção (URL pública ou via Tailscale)
+   ↓
+doc-auditor pega no domingo seguinte e propõe patches de doc se faltou
+```
+
+## Princípios que valem a pena memorizar
+
+- **AI-native**: tudo o que pode ser delegado pra agente, é
+- **Observabilidade primeiro**: cada chamada LLM passa por Langfuse
+- **Fallback by default**: nenhum agente preso a 1 provider
+- **Markdown-as-code**: doc vive no repo
+- **Aprovação humana em mudanças de doc**: doc-auditor sugere, humano aprova
+
+## Próximos passos comuns
+
+- Ler [ADR-001 (Python vs TS)](/docs/decisoes/001-python-vs-typescript) e [ADR-002 (Multi-LLM)](/docs/decisoes/002-multi-llm) pra entender as decisões estruturantes
+- Olhar [Torre de Saúde](/docs/torres/saude) pra ver tudo rodando ao vivo
+- Se for mexer em agente: [Cláudio](/docs/agentes/claudio) é o template

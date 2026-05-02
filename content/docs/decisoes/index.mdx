@@ -1,0 +1,65 @@
+---
+title: Decisões (ADRs)
+description: Architectural Decision Records — porquê das escolhas técnicas estruturantes
+---
+
+ADRs são registros curtos de **decisões irreversíveis ou caras de reverter**.
+Cada um responde: o que decidimos, por quê, quais alternativas consideramos,
+e o que perdemos com a escolha.
+
+## Por que existem
+
+Sem ADR, a memória institucional vive na cabeça das pessoas. Em 6 meses
+ninguém lembra por que escolhemos X em vez de Y, e a gente refaz a discussão
+toda vez que alguém novo chega ou alguém quer "modernizar".
+
+ADR não é doutrina — é cápsula do tempo. Decisões podem ser revisitadas
+quando o contexto muda. Mas começa lendo o ADR pra entender por que era
+assim.
+
+## ADRs vigentes
+
+<Cards>
+  <Card title="ADR-001 · Python sobre TypeScript" href="/docs/decisoes/001-python-vs-typescript" description="Por que zyon-agents é Python e não Node" />
+  <Card title="ADR-002 · Multi-LLM com fallback" href="/docs/decisoes/002-multi-llm" description="Por que não dependemos de um único provider" />
+  <Card title="ADR-003 · Mac mini como produção" href="/docs/decisoes/003-mac-mini-prod" description="Por que rodamos agentes 24/7 em hardware próprio" />
+  <Card title="ADR-004 · Markdown-as-code para docs" href="/docs/decisoes/004-markdown-docs" description="Por que não Notion, Confluence ou similar" />
+</Cards>
+
+## Como adicionar uma ADR nova
+
+1. Crie `decisoes/00X-nome-curto.mdx` com o template abaixo
+2. Adicione no card grid acima e em `meta.json`
+3. PR + merge — ADRs são append-only, não se editam após merge
+4. Se a decisão for revisitada/anulada: criar `00Y-revoga-00X-...mdx` que aponta pra original
+
+### Template
+
+```mdx
+---
+title: ADR-XXX · Título curto
+description: Resumo em 1 linha
+---
+
+**Status:** vigente | revogada-por-XXX
+**Data:** YYYY-MM-DD
+**Decisor:** Nome
+
+## Contexto
+O que estava acontecendo, o problema concreto.
+
+## Decisão
+O que decidimos fazer.
+
+## Alternativas consideradas
+- Opção A — por que não
+- Opção B — por que não
+
+## Consequências
+- O que ganhamos
+- O que perdemos
+- O que fica em aberto
+
+## Quando revisitar
+Sinais que indicam que a decisão precisa ser reavaliada.
+```

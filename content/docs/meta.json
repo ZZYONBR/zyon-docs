@@ -1,4 +1,4 @@
 {
   "title": "ZZYON Docs",
-  "pages": ["index", "arquitetura", "agentes", "torres", "infra", "runbooks"]
+  "pages": ["index", "quickstart", "arquitetura", "agentes", "torres", "infra", "runbooks", "automacao", "decisoes"]
 }

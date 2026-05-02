@@ -1,0 +1,56 @@
+---
+title: Roberval
+description: Agente que gera o briefing diário do CEO
+---
+
+**Roberval** é o agente responsável por preparar o briefing matinal pro
+Rubens (CEO). Roda diariamente às 06:00 BRT, varre mercado + estado interno,
+e publica em [briefing.zzyon.com](https://briefing.zzyon.com).
+
+## Pipeline diário
+
+```
+06:00 BRT — SKILL roberval-briefing-06h dispara
+  ↓
+1. Coleta interna (Supabase)
+   - vw_cargas_resumo_ontem      → CTes, OTIF, ocorrências
+   - vw_cs_ra_pulso_hoje         → reclamações abertas, pendentes
+   - vw_frota_alertas_hoje       → manutenção vencendo, motoristas escalados
+  ↓
+2. Coleta externa (Perplexity Sonar)
+   - Diesel S-10 médio Brasil + variação semana
+   - IPCA mensal mais recente
+   - Dólar/Real spot
+   - Notícias setor logístico (últimas 24h)
+  ↓
+3. Síntese (Sonnet 4.6)
+   - Identifica 3-5 pontos que merecem atenção do CEO
+   - Estrutura em "Operação", "Mercado", "Pendências"
+   - Tom executivo, dados objetivos, sem bullshit
+  ↓
+4. Publicação
+   - HTML estático em briefing.zzyon.com (sobrescreve diário)
+   - PDF imprimível em /pdf
+   - Link WhatsApp pro Rubens
+```
+
+## Modelos usados
+
+| Etapa | Modelo | Custo médio/dia |
+|---|---|---|
+| Pesquisa mercado | sonar-large-online (Perplexity) | ~$0.005 |
+| Síntese executiva | claude-sonnet-4-6 | ~$0.02 |
+| **Total/dia** | — | **~$0.025** ($0.75/mês) |
+
+## Onde está
+
+- **SKILL**: `~/.claude/scheduled-tasks/roberval-briefing-06h/SKILL.md`
+- **Cron**: `0 6 * * *` (diário 06:00 BRT)
+- **Saída**: `briefing.zzyon.com` (frontend Next.js)
+- **Histórico**: `briefings_historico` no Supabase (1 registro por dia)
+
+## Quando intervir
+
+- Briefing em branco às 06:30 → checar SKILL no painel Anthropic
+- Tom sumido das notícias → ajustar prompt do passo de síntese
+- Notícias irrelevantes → refinar query Perplexity (filtros geo + setor)

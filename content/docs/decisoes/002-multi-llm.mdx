@@ -1,0 +1,70 @@
+---
+title: ADR-002 · Multi-LLM com fallback automático
+description: Por que cada agente fala com 2-3 providers, não com um só
+---
+
+**Status:** vigente
+**Data:** 2026-05-01
+**Decisor:** Rubens (CEO)
+
+## Contexto
+
+Agentes em produção fazem chamadas LLM em laços críticos da operação
+(atendimento WhatsApp, geração de réplicas Reclame Aqui, briefing diário CEO).
+Indisponibilidade de **15 minutos** num provider durante horário comercial
+significa:
+
+- Cláudio para de responder clientes → vergonha imediata
+- RA1000 não consegue gerar réplica em janela de SLA → multa Reclame Aqui
+- Briefing 06h não chega → Rubens começa o dia no escuro
+
+A pergunta não é "se" Anthropic/OpenAI/Google vão ter incident, é "quando".
+
+## Decisão
+
+Todo agente chama LLM via `core/llm_client.complete()` que:
+
+1. Roteia tarefa via `core/llm_router.route()` → escolhe modelo principal
+2. Cada `LLMConfig` tem `fallback_chain: list[str]` com 1-2 modelos backup
+3. Em qualquer exceção do principal (`RateLimitError`, `APIConnectionError`,
+   `AuthenticationError`, etc.), itera pra próxima opção
+4. Trace no Langfuse marca `fallback_used=true` quando aciona
+
+## Alternativas consideradas
+
+- **Single-vendor (só Anthropic)**
+  - A favor: um SDK, uma billing, um prompt format
+  - Contra: SPOF inaceitável pra operação 24/7
+
+- **Round-robin entre providers** (load balance)
+  - A favor: distribui carga, reduz latência média
+  - Contra: comportamento inconsistente entre modelos, debug viraria pesadelo
+
+- **Failover só no cliente (sem agente saber qual usou)**
+  - A favor: simplicidade, agente não pensa nisso
+  - Contra: difícil pra observabilidade — não sabemos quanto rodou via fallback
+
+## Consequências
+
+**Ganhos:**
+- Validado em produção: forçamos Anthropic key inválida → Gemini 2.5 Flash
+  serviu o request com `fallback_used=true` no trace
+- Custo zero quando primário funciona (fallback só ativa em erro)
+- Confiança pra operar 24/7 sem alertas existenciais
+
+**Perdas:**
+- Pricing tables duplicadas (entry por modelo) — mantém em
+  `core/llm_client.py:PRICING` + `zyon-saude/src/app/api/models/route.ts:PRICING`
+- Quando troca preço de um provider, precisa atualizar 2 lugares (mitigado pelo doc-auditor)
+- Prompts às vezes precisam ajustes finos por provider (Gemini é mais verboso)
+
+**Em aberto:**
+- Não testamos fallback do Sonar (Perplexity) — research_web tem fallback pra Claude mas Claude não tem web search nativo
+- OpenAI Whisper não tem fallback (não há Whisper-equivalent no Anthropic)
+
+## Quando revisitar
+
+- Se Anthropic atingir 99.99%+ de SLA medido por nós em 6 meses → talvez
+  remover fallback pra tasks low-criticality (economia de complexidade)
+- Se aparecer modelo dramaticamente melhor num task type específico → ajustar
+  routing antes de pensar em fallback

@@ -1,0 +1,28 @@
+---
+title: Torre Inbox
+description: Inbox unificado multi-canal (WhatsApp, Email, Reclame Aqui)
+---
+
+URL: [inbox.zzyon.com](https://inbox.zzyon.com)
+
+Painel que consolida todas as conversas com clientes em **um único feed**,
+independente do canal de origem.
+
+## Canais cobertos
+
+| Canal | Fonte | Stack |
+|---|---|---|
+| WhatsApp | Evolution API (instância `icaro-claudio`) | conversa via [Cláudio](../agentes/claudio) |
+| Email | Gmail OAuth + Microsoft 365 | sync periódico |
+| Reclame Aqui | scraping + edge fn `ra-sync-xlsx` | reativo via [RA1000](../agentes/ra1000) |
+
+## Funcionalidades
+
+- **Visão unificada** por cliente: todas as interações dos últimos 30/60/90 dias
+- **Filtros**: canal, status, tag, sentimento, severidade
+- **Tagging automático** via classifier LLM (Haiku 4.5)
+- **Atribuição** a operadores humanos quando escalado
+
+## Repo
+
+[ZZYONBR/torre-inbox](https://github.com/ZZYONBR/torre-inbox)

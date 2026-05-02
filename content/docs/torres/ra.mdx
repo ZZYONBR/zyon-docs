@@ -1,0 +1,36 @@
+---
+title: Torre RA1000
+description: Pulso Reclame Aqui em tempo real + escalação automática
+---
+
+URL: [ra.zzyon.com](https://ra.zzyon.com)
+
+Painel mestre do agente [RA1000](../agentes/ra1000). Mostra reclamações vindas
+do Reclame Aqui em duas perspectivas:
+
+## Abas
+
+| # | Aba | Conteúdo |
+|---|---|---|
+| 01 | RA1000 Pulso (default) | Visão canônica nova: KPIs hoje, pendentes por filial, aging, score por filial |
+| 02 | Tratativa | Visão legada: reclamações com texto integral + status ESL |
+
+## Fontes de dados
+
+- `cs_ra_reclamacoes` (canonical RA1000) → tab "RA1000 Pulso"
+- `reclamacoes_ra` (legacy) → tab "Tratativa"
+
+Ambas alimentadas pela mesma edge function `ra-sync-xlsx` rodando após cada
+SKILL `reclameaqui-*` no Mac mini.
+
+## Views agregadoras
+
+- `vw_cs_ra_pulso_hoje` — métricas da janela atual
+- `vw_cs_ra_aging_pendentes` — quem tá pendurado há quanto tempo
+- `vw_cs_ra_filial_score` — ranking de filiais por NPS/SLA RA
+- `vw_cs_ra_ar_realtime` — taxa de resposta em tempo real
+- `vw_cs_ra_top_origem_problema` — categoria + origem cliente
+
+## Repo
+
+[ZZYONBR/torre-ra](https://github.com/ZZYONBR/torre-ra)

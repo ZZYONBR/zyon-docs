@@ -1,0 +1,36 @@
+---
+title: Torre Cargas
+description: Rastreio CTe, ocorrências e SLA por cliente/rota
+---
+
+URL: [cargas.zzyon.com](https://cargas.zzyon.com)
+
+Painel operacional do trânsito de carga. Visão por CTe, manifesto e rota,
+com SLA por cliente e ocorrências classificadas.
+
+## Cards principais
+
+- **CTes em trânsito** com previsão de entrega vs prazo contratual
+- **OTIF / OTD** por cliente, filial e rota
+- **Avarias / Extravios / Devoluções** classificadas por causa raiz
+- **Ocorrências hoje** filtráveis por tipo (atraso, avaria, desvio rota)
+- **Performance parceiro** (transportadoras, agregados)
+
+## Fonte de dados
+
+- **ESL Cloud API** (tenant `icaro`) — fonte canônica de CTes, manifestos, ocorrências
+- **vw_cargas_*** (Supabase) — views agregadoras alimentadas por sync periódico
+
+## Metas SLA (Ícaro Express, posicionamento premium)
+
+| Métrica | Meta |
+|---|---|
+| OTIF | ≥95% |
+| OTD | ≥97% |
+| Avaria | ≤0.01% |
+| Extravio | ≤0.01% |
+| Devolução | ≤0.1% |
+
+## Repo
+
+[ZZYONBR/torre-cargas](https://github.com/ZZYONBR/torre-cargas)

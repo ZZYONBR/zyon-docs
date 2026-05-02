@@ -1,0 +1,27 @@
+---
+title: Torre Controladoria
+description: DRE, custos por filial, formação de preço e conciliação de parceiros
+---
+
+URL: [controladoria.zzyon.com](https://controladoria.zzyon.com)
+
+Painel financeiro-operacional da Ícaro Express. Visão consolidada e por filial
+de DRE, margens, custos fixos rateados e simulação de preço.
+
+## Funcionalidades
+
+- **DRE por filial** com comparativo período a período
+- **Custos fixos** por categoria, com critério de rateio configurável (receita / volume / headcount)
+- **Margem por cliente** detalhando custos diretos e fixos
+- **Conciliação parceiros** (transportadoras, agregados, Correios) contra tabelas vigentes
+- **Calculadora de frete** rota × peso × valor NF
+- **Formação de preço** com margem-alvo, simulando reajustes (combustível, pedágio, dissídio)
+
+## Stack de cálculo
+
+Algoritmos centralizados em `core/pricing.py` (zyon-agents). Valores de baú e
+pricing sources vêm de `data/financeiro/`.
+
+## Repo
+
+[ZZYONBR/torre-controladoria](https://github.com/ZZYONBR/torre-controladoria)

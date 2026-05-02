@@ -1,0 +1,59 @@
+---
+title: ADR-001 · Python sobre TypeScript pra zyon-agents
+description: Por que a linha oficial de agentes é Python (com Cláudio como template)
+---
+
+**Status:** vigente
+**Data:** 2026-05-01
+**Decisor:** Rubens (CEO)
+
+## Contexto
+
+Em 2026 o ecossistema ZZYON tinha duas linhas paralelas de agentes:
+
+- **icaro-agents** (TypeScript + MCP SDK) — primeira tentativa, baseada nos
+  servers MCP nativos, integração TS-first com Anthropic
+- **zyon-agents** (Python) — versão prática, focada em SKILLs reais rodando
+  no Mac mini com Anthropic Scheduled Tasks
+
+Rodando lado a lado por 2-3 meses, ficou evidente qual ganhou tração.
+
+## Decisão
+
+**zyon-agents (Python) é a linha oficial.** icaro-agents fica em PAUSED
+status. Cláudio é o template canônico — qualquer novo agente parte de cópia
+modificada de `claudio/`.
+
+Documentado em `zyon-agents/STATE.md` e `zyon-agents/DECISIONS.md`.
+
+## Alternativas consideradas
+
+- **Manter TypeScript (icaro-agents) como oficial**
+  - A favor: tipagem forte, mesma stack das torres Next.js, SDK MCP TS
+  - Contra: ecossistema de libs menos maduro pra LLM ops (Langfuse, prompt caching, batch API), maior fricção pra Claude Code escrever rapidamente, depend chains pesadas
+
+- **Mover tudo pra Go ou Rust**
+  - A favor: performance, distribuição binária
+  - Contra: zero ganho real pra workload IO-bound (chamadas LLM), comunidade muito menor, TPO mais alto
+
+## Consequências
+
+**Ganhos:**
+- Velocidade de iteração — Python tem libs prontas pra tudo (openpyxl, anthropic, gemini, etc.)
+- Claude Code escreve Python idiomático sem esforço
+- Langfuse Python SDK é first-class
+- SKILLs (que vivem em markdown rodando em Claude Code) são naturalmente Python-flavored
+
+**Perdas:**
+- Tipagem mais frouxa (mitigado por type hints + mypy)
+- Empacotamento/deploy mais chato que `npm` (mitigado: tudo roda em venv no Mac mini, sem distribuir binário)
+- Code-share com torres TS é zero — APIs HTTP fazem a ponte
+
+**Em aberto:**
+- Migração de qualquer lógica que valeu a pena no `icaro-agents` pro `zyon-agents` é incremental, sem urgência
+
+## Quando revisitar
+
+- Se aparecer biblioteca matadora exclusiva de TS pra orquestração de agentes
+- Se decidir extrair pacotes shared (formatadores, validators) pra serem usados nas torres Next.js também
+- Se time crescer e Python deixar de ser conforto comum

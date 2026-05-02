@@ -1,0 +1,28 @@
+---
+title: Torre Frota
+description: GPS, escala motoristas, eventos operacionais e TCO
+---
+
+URL: [frota.zzyon.com](https://frota.zzyon.com)
+
+Painel operacional da frota Ícaro Express. Mostra estado em tempo real dos
+veículos, motoristas escalados, alertas de manutenção, e custos consolidados.
+
+## Cards principais
+
+- **Veículos ativos** por filial e categoria (cavalo, truck, toco, van)
+- **Eventos GPS** das últimas horas (paradas, desvios de rota, velocidade)
+- **Alertas de manutenção** vencendo nos próximos N dias
+- **Custo médio por km** por categoria de veículo
+- **Status WhatsApp Frota** (Evolution API, instância `icaro-frota`)
+
+## Integrações
+
+- **Autotrac / Sascar** → eventos GPS e telemetria
+- **ESL Cloud** → escala motoristas, motoristas vinculados a CTes
+- **WhatsApp Frota** → comunicação outbound com motoristas (cron `*/1 * * * *`)
+- **Gmail Pull** → tracking de entregas via e-mail dos clientes (cron `*/5 * * * *`)
+
+## Repo
+
+[ZZYONBR/torre-frota](https://github.com/ZZYONBR/torre-frota)

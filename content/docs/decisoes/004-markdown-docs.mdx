@@ -1,0 +1,73 @@
+---
+title: ADR-004 · Markdown-as-code para documentação
+description: Por que docs.zzyon.com vive no GitHub e não em Notion/Confluence
+---
+
+**Status:** vigente
+**Data:** 2026-05-02
+**Decisor:** Rubens
+
+## Contexto
+
+Operação ZZYON tem 8 torres + 3 agentes + infra distribuída. Sem doc
+estruturada, onboarding é caos e qualquer mudança vira tribal knowledge.
+
+Opções típicas:
+
+- **Notion / Confluence** — WYSIWYG, fácil pra leigos, mas vive separado do
+  código e desatualiza imediatamente
+- **GitHub Wiki** — junto do repo mas formatação pobre, sem busca cross-repo
+- **Site dedicado** com MDX → markdown rico + componentes React
+
+## Decisão
+
+**Documentação canônica em MDX no repo `ZZYONBR/zyon-docs`, publicada em
+`docs.zzyon.com` via Fumadocs + Vercel.** Cada doc é um `.mdx` versionado.
+Atualizações vão por PR (com revisão).
+
+**Bonus:** SKILL `doc-auditor-weekly` audita drift entre código e doc
+semanalmente, propondo patches via LLM.
+
+## Alternativas consideradas
+
+- **Notion**
+  - A favor: editor visual, fácil colaboração não-técnica, search nativo
+  - Contra: vive desconectado do código (atualiza onde, quando, como?), R$/seat caro pra time pequeno, dados ficam reféns da Notion, sem versionamento real
+
+- **Confluence**
+  - A favor: integração Atlassian/Jira, permissões granulares
+  - Contra: pesado pra time pequeno, UX dolorida, custo
+
+- **GitHub Wiki**
+  - A favor: junto do código, gratuito
+  - Contra: editor pobre, sem dark mode/branding, search limitado a 1 repo, sem componentes/cards
+
+- **README's espalhados em cada repo**
+  - A favor: máxima proximidade com código
+  - Contra: visão consolidada da plataforma é impossível, navegação entre repos péssima
+
+## Consequências
+
+**Ganhos:**
+- Versionamento real (git log, diff, blame, revert)
+- PR review pra mudança de doc importante
+- Brand control total (cores ZZYON, tipografia, AI chat)
+- Builds estáticos via Vercel ($0/mês de hosting)
+- `llms.txt` automático pra LLMs externos consumirem nossa doc
+- `doc-auditor` fecha o ciclo: drift detectado → patch proposto → PR
+
+**Perdas:**
+- Pessoas não-técnicas precisam aprender Markdown básico (ninguém aqui é não-técnico, mas se crescer pode pesar)
+- Edição requer git/PR — fricção maior pra correções de typo (mitigado: GitHub UI permite edit-direto-no-browser)
+- Imagens precisam upload manual (sem drag-drop tipo Notion)
+
+**Em aberto:**
+- Internacionalização (PT/EN) se precisar — Fumadocs suporta mas não configuramos
+- Permissões: hoje docs.zzyon.com é 100% público. Conteúdo sensível precisa
+  ficar em outro lugar (não publicar em MDX)
+
+## Quando revisitar
+
+- Se time crescer e tiver pessoas que sangram com Markdown/git
+- Se aparecer plataforma híbrida (markdown + WYSIWYG + git) madura — cabia testar
+- Se conteúdo sensível precisar ser parte da doc canônica (precisaria auth)

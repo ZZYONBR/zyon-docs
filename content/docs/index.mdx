@@ -3,19 +3,28 @@ title: Visão Geral
 description: O que é a plataforma ZZYON e como navegar a documentação
 ---
 
-A **plataforma ZZYON** é o ecossistema de agentes IA, torres operacionais e infraestrutura
-da Ícaro Express Logistics. Esta documentação é a fonte canônica da arquitetura — atualizada
-semanalmente por um agente `doc-auditor` que detecta divergências entre o código e o que
-está escrito aqui.
+A **plataforma ZZYON** é o ecossistema de agentes IA, torres operacionais e
+infraestrutura da Ícaro Express Logistics. Esta documentação é a fonte
+canônica da arquitetura — atualizada semanalmente por um agente
+[doc-auditor](/docs/automacao/doc-auditor) que detecta divergências entre o
+código e o que está escrito aqui.
+
+## Comece por aqui
+
+<Cards>
+  <Card title="Quickstart" href="/docs/quickstart" description="Onde estão as coisas, quem faz o quê, primeiros comandos" />
+  <Card title="Decisões (ADRs)" href="/docs/decisoes" description="Por que escolhemos as coisas que escolhemos" />
+</Cards>
 
 ## Como a doc é organizada
 
 <Cards>
-  <Card title="Arquitetura" href="/docs/arquitetura/multi-llm" description="Multi-LLM, Langfuse, fallback chain" />
-  <Card title="Agentes" href="/docs/agentes/claudio" description="Cláudio, RA1000, Roberval" />
+  <Card title="Arquitetura" href="/docs/arquitetura/multi-llm" description="Multi-LLM router, fallback chain, Langfuse" />
+  <Card title="Agentes" href="/docs/agentes/claudio" description="Cláudio · RA1000 · Roberval" />
   <Card title="Torres" href="/docs/torres/saude" description="8 painéis Next.js em produção" />
-  <Card title="Infraestrutura" href="/docs/infra/maquinas" description="Mac mini, Tailscale, PM2, Supabase" />
+  <Card title="Infraestrutura" href="/docs/infra/maquinas" description="Mac mini, Tailscale, PM2, Supabase, Vercel" />
   <Card title="Runbooks" href="/docs/runbooks/deploy-vercel" description="Deploys, escalações, incidentes" />
+  <Card title="Automação" href="/docs/automacao/doc-auditor" description="SKILLs e agentes de manutenção" />
 </Cards>
 
 ## Stack rápida
@@ -33,6 +42,7 @@ está escrito aqui.
 ## Princípios
 
 - **AI-native**: tudo o que pode ser delegado pra agente, é. SKILLs com cron resolvem o operacional.
-- **Markdown-as-code**: doc vive no repo, ao lado do código que descreve.
+- **Markdown-as-code**: doc vive no repo, ao lado do código que descreve. Ver [ADR-004](/docs/decisoes/004-markdown-docs).
 - **Observabilidade primeiro**: cada chamada LLM passa por Langfuse com custo, latência, fallback.
-- **Fallback by default**: nenhum agente fica preso a 1 provider — chain Anthropic → Gemini → GPT-4o.
+- **Fallback by default**: nenhum agente fica preso a 1 provider — chain Anthropic → Gemini → GPT-4o. Ver [ADR-002](/docs/decisoes/002-multi-llm).
+- **Aprovação humana em mudanças sensíveis**: doc-auditor sugere, humano aprova. Sem auto-merge.

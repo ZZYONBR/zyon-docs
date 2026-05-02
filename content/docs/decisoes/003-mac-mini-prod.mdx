@@ -1,0 +1,78 @@
+---
+title: ADR-003 · Mac mini como produção 24/7
+description: Por que rodamos agentes em hardware próprio em vez de cloud-only
+---
+
+**Status:** vigente
+**Data:** 2026-04 (decisão tomada na compra do Mac mini)
+**Decisor:** Rubens
+
+## Contexto
+
+Os agentes ZZYON precisam:
+
+- Rodar Anthropic Scheduled Tasks (apenas via Claude Code, que precisa
+  ambiente persistente com filesystem)
+- Hospedar Langfuse self-hosted (custos de hosted plan inviáveis pra volume
+  esperado)
+- Manter Evolution API ativo + Cloudflare Tunnel (precisa endereçamento
+  estável)
+- Rodar PM2 com Cláudio API exposta na rede interna (Tailscale)
+- Acessar Desktop com permissões TCC (XLSX gerados por SKILLs)
+
+Cloud-only (Vercel + serverless) é ótimo pras torres Next.js mas não cabe
+agentes que precisam: filesystem persistente, processo longo, exposição em
+rede interna, integração com app desktop.
+
+## Decisão
+
+**Mac mini M-series como host 24/7 de produção dos agentes.** MacBook Pro
+fica como ambiente de desenvolvimento. As duas máquinas conectadas via
+**Tailscale**, SSH passwordless. `.env` files referenciam IPs Tailscale, nunca
+`localhost`.
+
+## Alternativas consideradas
+
+- **AWS EC2 / GCP Compute** (Linux 24/7)
+  - A favor: cloud nativo, escala fácil, SSH first-class
+  - Contra: Anthropic Scheduled Tasks precisa Claude Code que precisa macOS
+    (ou Linux com workarounds frágeis); custo mensal alto pra workload baixo;
+    perde integração nativa com Apple Notes/Calendar/iMessage MCPs
+
+- **Servidor dedicado em data center**
+  - A favor: SLA do datacenter, peering, fibra
+  - Contra: investimento alto, mesmas limitações de macOS-only
+
+- **Manter tudo em laptops das pessoas**
+  - A favor: zero custo extra
+  - Contra: laptops dormem, vão pra reunião, sofrem com luz piscando — agente
+    24/7 morre toda hora
+
+## Consequências
+
+**Ganhos:**
+- Custo fixo previsível: ~R$10k de hardware uma vez vs R$300/mês cloud por anos
+- Latência baixa entre agentes (Tailscale LAN-like)
+- Acesso direto ao Apple ecosystem MCPs (iMessage, Notes, Calendar) que no
+  Linux não existem
+- Filesystem confiável pras SUPPLEMENT XLSX dos SKILLs RA
+- Tailscale resolve "como expor agente pra MacBook" sem VPN tradicional
+
+**Perdas:**
+- SPOF físico: queda de luz/ISP local mata produção (mitigação: nobreak +
+  4G failover pra próxima fase)
+- Sem auto-scaling — se workload triplicar precisa upgrade manual
+- macOS TCC às vezes engasga (Desktop folder, Calendar) — toggle manual
+- Backup: precisa estratégia separada (Time Machine + offsite manual)
+
+**Em aberto:**
+- Plano B se Mac mini falhar fisicamente: não temos hot-standby. Cold
+  recovery é horas (recompras + setup). Aceitável hoje, problema se
+  faturamento crescer.
+
+## Quando revisitar
+
+- Quando volume LLM/dia × custo Mac mini < custo cloud equivalente
+- Se Anthropic lançar Scheduled Tasks hosted (sem precisar Claude Code local)
+- Se Apple parar de vender Mac mini com specs adequadas (improvável)
+- Se algum ataque/problema físico ao endereço Joinville matar o uptime
