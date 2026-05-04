@@ -1,76 +1,327 @@
 ---
 title: RA1000
-description: Agente Reclame Aqui — varredura, replica, escalação automática
+description: Agente Reclame Aqui — varredura, classificação, resposta humanizada, roteamento e escalação automática
 ---
 
-**RA1000** monitora o perfil Ícaro Express no Reclame Aqui, classifica reclamações,
-roteia pro líder de filial certo via WhatsApp, e escala automaticamente se ninguém
-responder em 1h/3h/6h.
+**RA1000** é o agente que monitora o perfil Ícaro Express no Reclame Aqui,
+classifica reclamações, posta respostas humanizadas (assinadas como "Cláudio"),
+roteia pro líder de filial certo, e escala automaticamente se ninguém responder.
 
-## Fluxo de dados
+Toda reclamação tem **histórico append-only com timestamp BRT** e cada
+notificação inclui o histórico cumulativo (anteriores + novo evento).
+
+## Estado atual (4 maio 2026)
+
+- ✅ Pipeline rodou ponta-a-ponta pela primeira vez com a reclamação **#247604999** (Wallace Murillo)
+- ✅ **13 eventos** registrados no histórico_log da reclamação
+- ✅ Email cumulativo enviado pra base SAO + Jimmy CC + Rubens BCC
+- ✅ Magic link Kevin emitido (válido 7d)
+- ✅ OAuth Gmail `ra1000@zzyon.com` 100% configurado
+- ✅ Token GraphQL ESL Cloud no Supabase Vault
+- ✅ Chrome MCP no Mac mini logado no painel RA Business
+
+## 1. Visão Geral em 1 Diagrama
 
 ```
-SKILLs RA (07h, 09h, 10h, 13h, 17h, 20h)
-  ↓ scraping (Claude in Chrome MCP)
-SUPPLEMENT_DD-MM-YYYY_HHh.xlsx
-  ↓
-sync_xlsx_to_supabase.py
-  ↓ POST
-ra-sync-xlsx (edge fn v2)
-  ↓ batch upsert
-┌─────────────────────────┬────────────────────────────┐
-│ reclamacoes_ra (legacy) │ cs_ra_reclamacoes (RA1000) │
-│   ↓                     │   ↓                        │
-│ vw_ra_monitor           │ vw_cs_ra_pulso_hoje + 5    │
-│   ↓                     │   ↓                        │
-│ ra.zzyon.com Tratativa  │ ra.zzyon.com RA1000        │
-└─────────────────────────┴────────────────────────────┘
+ENTRADA: Cliente abre reclamação no Reclame Aqui
+   ↓
+RA dispara EMAIL → ra1000@zzyon.com  +  fica no painel "Não Respondidas"
+   ↓
+   ├─ SKILL inbox-watch (cron */5min, OAuth Gmail)
+   └─ SKILL ra1000-watcher (cron */15min, Chrome MCP painel RA)
+   ↓
+SCRAPE detalhe: CPF, telefone, email, pedido, embarcador, motivo
+   ↓
+UPSERT cs_ra_reclamacoes (Trigger auto-atribui filial via cs_ra_find_lider)
+log_event(reclamacao_aberta, dados_extraidos)
+   ↓
+TENTATIVA LOOKUP ESL Cloud GraphQL (token Vault)
+log_event(tentativa_lookup_esl, resultado)
+   ↓
+CLASSIFICAÇÃO: Fluxo A (no prazo) / B (intercorrência) / C (falha) / D (faltam dados)
+   ↓
+GERAÇÃO DRAFT via LLM Sonnet 4.6 (assinatura "Cláudio · Atendimento Ícaro Express")
+   ↓
+   ├─ Fluxo A* (promete data) → AGUARDA OK GESTOR via WA, 1h30 timeout → escala Rubens
+   └─ Fluxo B/C/D (sem promessa de data) → AUTO-POSTA
+   ↓
+POSTAGEM no painel RA via Chrome MCP (24/7)
+log_event(resposta_postada_no_ra)
+   ↓
+NOTIFICAÇÃO multi-canal cumulativa (sempre histórico append-only):
+   • EMAIL: TO base filial · CC Jimmy · BCC Rubens
+   • WHATSAPP: líder filial + Kevin + Rubens + (Jimmy se TI)
+   • Subject canônico: CPF | Nome | Embarcador | NF | RA #ID
+   ↓
+CLIENTE RESPONDE NO RA
+   ↓
+SKILL ra1000-replier */15min:
+   • Se passou NF → query freight{invoiceKey} no ESL → status real
+   • Gera follow-up Fluxo A/B/C apropriado
+   • Se promete data: aciona gestor pra confirmar
+   • Posta + email cumulativo (todos eventos anteriores + novos)
+   ↓
+CASO RESOLVIDO → RA pede 3 campos nativos: resolvido / nota 0-10 / voltaria
+   ↓
+SKILL ra1000-avaliador */30min:
+   • Captura avaliação
+   • Se nota baixa → ALERTA + tréplica pública (botão tréplica RA, 30d janela)
 ```
 
-## Roteamento por filial
+## 2. Padrão de assunto (todos os emails RA1000)
 
-Função SQL `cs_ra_find_lider(uf, cidade)` retorna o líder responsável usando 7 regras:
+```
+CPF NNN.NNN.NNN-NN | Nome Completo | Embarcador | NF NNNNNN | RA #ID
+```
 
-| UF / Cidade | Líder | WhatsApp |
+Ex: `CPF 424.428.158-42 | Wallace Murillo de Oliveira Rodrigues | Terabyte | NF pendente | RA #247604999`
+
+## 3. Histórico append-only
+
+Cada evento na vida da reclamação vira uma entrada em
+`cs_ra_reclamacoes.historico_log` (JSONB array):
+
+```json
+{
+  "ts": "2026-05-04 11:36:42 BRT",
+  "actor": "sistema:claudio_ai",
+  "event": "resposta_postada_no_ra",
+  "source": "painel_ra_business",
+  "details": {
+    "via": "chrome_mcp",
+    "painel_url": "https://www.reclameaqui.com.br/area-da-empresa/...",
+    "confirmacao": "Resposta enviada com sucesso"
+  }
+}
+```
+
+Função: `cs_ra_log_event(ra_id, actor, event, details, source)` — append-only,
+nunca apaga, nunca edita.
+
+### Eventos canônicos
+
+```
+reclamacao_aberta            cliente abre no RA
+detectada_no_painel_ra       SKILL watcher captura
+detectada_no_email           SKILL inbox-watch captura
+dados_extraidos              CPF, telefone, NF, embarcador via scrape
+tentativa_lookup_esl         queries GraphQL + resultado
+fluxo_detectado              A/B/C/D + severidade C1-C5
+draft_gerado                 LLM Sonnet 4.6 + custo_usd
+draft_aprovado               humano: rubens / gestor
+data_proposta_gestor         quando Fluxo A pede data ao gestor
+data_confirmada_gestor       gestor responde via WA
+escalacao_rubens             timeout 1h30 sem resposta gestor
+resposta_postada_no_ra       Chrome MCP via painel
+gestor_alertado              WA pra líder filial
+email_base_filial            email cumulativo TO+CC+BCC
+kevin_acionado               WA pra Kevin com link
+jimmy_acionado_ti            escalation TI se RA não sync
+rubens_copia                 cópia executiva
+cliente_respondeu            mensagem nova no thread RA
+followup_postado             nova resposta nossa após dado novo
+avaliacao_recebida           cliente fechou: nota+resolvido+voltaria
+treplica_postada             nota baixa → resposta pública
+```
+
+## 4. Schema Supabase (project `hbrvoairynwsliyxxgsg`)
+
+### Tabelas
+
+| Tabela | Papel |
+|---|---|
+| `cs_ra_reclamacoes` | Canonical RA1000 (uma linha por RA) |
+| `reclamacoes_ra` | Legacy — alimentada por SKILLs antigas |
+| `cs_ra_routing_rules` | 7 regras: SAO/RIO/CPQ/CWB/BHZ/JOI + FALLBACK |
+| `cs_ra_drafts` | Drafts LLM antes de postar |
+| `cs_ra_publicacoes` | Auditoria de postagens |
+| `cs_ra_avaliacoes` | Notas/feedback |
+| `cs_ra_replicas` | Tréplicas públicas |
+| `cs_ra_acoes` | Ações operacionais |
+| `cs_ra_esl_lookups` | Cache de queries ESL |
+| `cs_ra_emails_recebidos` | Inbox watcher events |
+| `cs_ra_metricas_diaria` | Agregações |
+| **`cs_ra_lider_perfil`** | **Cadastro completo dos líderes (CPF validado módulo-11)** |
+| **`cs_ra_magic_sessions`** | **Tokens magic-link 7d para acesso ao site** |
+
+### Coluna nova
+- `cs_ra_reclamacoes.historico_log JSONB` — append-only
+
+### Functions
+
+```sql
+fn_validar_cpf(text) → bool                         -- algoritmo módulo-11
+cs_ra_find_lider(uf, cidade) → record               -- prioridade cidade > UF > FALLBACK
+cs_ra_atribuir_filial_auto()                        -- TRIGGER BEFORE INSERT/UPDATE
+cs_ra_log_event(ra_id, actor, event, details, source) → jsonb
+cs_ra_lider_precisa_atualizar(lider, max_dias=30) → bool
+```
+
+### Views (8)
+`vw_cs_ra_pulso_hoje` · `vw_cs_ra_aging_pendentes` · `vw_cs_ra_filial_score` ·
+`vw_cs_ra_ar_realtime` · `vw_cs_ra_top_origem_problema` ·
+`vw_cs_ra_alertas_pendentes_escalacao` · `vw_cs_ra_notifications_abertas` ·
+`vw_cs_ra_stats_filial`
+
+## 5. Edge Functions
+
+| Edge Function | Versão | Cron | Papel |
+|---|---|---|---|
+| `ra-upsert` | v2 | event | Insert/update single reclamação canonical |
+| `cs-ra-router` | v2 | event | Roteia WhatsApp via cs_ra_find_lider |
+| `ra-sync-xlsx` | v2 | event | Batch upsert XLSX → ambas tabelas |
+| `cs-ra-escalation` | v1 | `*/15min` | Escala alertas pendentes 1h/3h sem resposta |
+| `cs-ra-magic-auth` | (planejada) | event | Validar token + criar session 7d |
+
+## 6. Integrações Externas
+
+| Integração | Endpoint | Auth | Uso |
+|---|---|---|---|
+| Reclame Aqui — Painel Business | `/area-da-empresa/...` | Email + senha (Cloudflare) | Scrape + post via Chrome MCP |
+| Reclame Aqui — Email | `ra1000@zzyon.com` | Gmail OAuth (refresh_token) | Inbox watch |
+| ESL Cloud TMS | `https://icaro.eslcloud.com.br/graphql` | Bearer (Vault `ESL_TOKEN`) | freight/cte/individual |
+| Evolution API | `100.65.23.99:8080` | API key | WhatsApp icaro-claudio |
+| Gmail API | googleapis.com | OAuth zyon-ra1000 | Send email cumulativo |
+| Chrome MCP | extensão local | sessão Mac mini | Driving navegador logado |
+| Anthropic LLM | api.anthropic.com | API key | Drafts via Sonnet 4.6 |
+
+## 7. Roteamento — 7 Filiais
+
+| Filial | UF | Líder | WhatsApp | Email base |
+|---|---|---|---|---|
+| **SAO** | SP | Gabriel | +5511960930058 | gabriel.araujo@icaroexpress.com |
+| **CPQ** | SP/Campinas | Rafael | +5511981490167 | rafael.gomes@icaroexpress.com |
+| **RIO** | RJ | Davi | +5521980452711 | atendimentorj@icaroexpress.com |
+| **CWB** | PR | Emerson | +5541988791939 | emerson.pauletti@dibasetransportes.com.br |
+| **BHZ** | MG | Renato | +5531991168906 | renatosoares.bhz@gmail.com |
+| **JOI** | SC | Jimmy (TI+filial) | +5547988146171 | frota@icaroexpress.com |
+| **FALLBACK** | * | Kevin | +5547997571032 | (sem) |
+
+**Sempre CC:** Jimmy `frota@icaroexpress.com`
+**Sempre BCC:** Rubens `rubens@icaroexpress.com.br`
+
+CPQ é override por **cidade=Campinas**, prioridade 10 > regra SAO prioridade 5.
+
+## 8. Fluxos A/B/C/D
+
+| Fluxo | Quando | Aprovação Gestor? | Auto-posta? |
+|---|---|---|---|
+| **A — No prazo** | ESL com previsão futura | Sim (1h30 timeout → escala Rubens) | ❌ |
+| **B — Intercorrência** | Cliente ausente, SEFAZ, etc. | — | ✅ |
+| **C — Falha nossa** | Atraso reconhecido / entregue tarde | — | ✅ |
+| **D — Dados faltando** | ESL sem match → pede NF/CPF | — | ✅ |
+
+**Regra de ouro:** "A única resposta que precisa de confirmação do gestor é a data de entrega" — Rubens, 2026-05-04.
+
+## 9. Janelas operacionais
+
+- **Postagem RA:** 24/7 (RA aceita posts a qualquer hora)
+- **WhatsApp/Email pro CLIENTE:** 08h-20h BRT
+- **WhatsApp/Email INTERNO** (líder, Jimmy, Rubens, Kevin): 24/7
+
+## 10. Magic Link + Cadastro Líderes
+
+```
+Acesso →  https://ra.zzyon.com/m/<token-32chars>
+   ↓
+Verifica cs_ra_magic_sessions (token + expira_em > now)
+   → renova expira_em +7d a cada acesso
+   ↓
+cs_ra_lider_precisa_atualizar(lider, 30d) ?
+   ├─ TRUE: form obrigatório (CPF módulo-11 + RG + endereço + CNH...)
+   │        persiste em cs_ra_lider_perfil + ultima_atualizacao=now()
+   │        a cada 30d revalida
+   └─ FALSE: dashboard direto
+   ↓
+Dashboard mostra reclamações da filial do líder + ações
+```
+
+### Campos obrigatórios do cadastro
+- Nome completo
+- CPF (validado módulo-11)
+- RG · Data nascimento · Nome da mãe
+- Endereço completo (CEP, rua, número, complemento, bairro, cidade, UF)
+- WhatsApp + telefone fixo + email
+- Cargo · Data admissão · Matrícula
+- CNH (número, categoria, validade)
+
+## 11. Validação CPF (testada)
+
+| Input | Esperado | Resultado |
 |---|---|---|
-| SC (Joinville) | Jimmy | +5547988146171 |
-| PR (Curitiba) | Gabriel | configurado |
-| SP (Campinas) | Emerson | configurado |
-| SP (São Paulo) | Davi | configurado |
-| RJ | Rafael | configurado |
-| MG | Renato | +5531991168906 |
-| **fallback** | **Kevin** | **+5547997571032** |
+| `424.428.158-42` (Wallace) | válido | ✅ |
+| `111.111.111-11` (repetidos) | inválido | ✅ rejeitado |
+| `123.456.789-09` | válido (algoritmo) | ✅ |
+| `''` (vazio) | inválido | ✅ rejeitado |
+| `NULL` | inválido | ✅ rejeitado |
 
-Escalação 1h sem resposta → Rubens.
+## 12. Templates aprovados
 
-## Escalação automática
+Todas as respostas são assinadas como **"Cláudio · Atendimento Ícaro Express"**.
 
-Edge function `cs-ra-escalation` (cron `*/15 * * * *`) escala alertas pendentes:
+### Anti-padrões banidos no prompt LLM
 
-- Sem resposta em **1h** → notifica Rubens
-- Sem resposta em **3h** → notifica Rubens + Hélio
-- Sem resposta em **6h** → escalação total
+```
+NUNCA usar:
+- "Conforme nosso sistema..."
+- "Aguardamos sua compreensão"
+- "Sua reclamação é importante para nós"
+- "Pedimos a gentileza de aguardar"
+- "Em breve" / "Logo" / "Brevemente"
+- "Prezado(a) cliente"  → usar primeiro nome
+- "Conforme procedimento"
+- Qualquer emoji
+```
 
-## Edge functions ativas
+### Regras importantes nos templates
 
-| Função | Versão | Papel |
-|---|---|---|
-| `ra-upsert` | v2 | Upsert single reclamação |
-| `cs-ra-router` | v2 | Roteia WhatsApp pro líder |
-| `ra-sync-xlsx` | v2 | Batch upsert XLSX → 2 tabelas |
-| `cs-ra-escalation` | v1 | Cron escalação 1h/3h |
-| `ra-vault-helper` | impl. | `fn_get_vault_secret` |
+1. **Motorista NÃO faz contato proativo** — não prometer ligação prévia
+2. **Endereço de NF não pode ser alterado pelo transportador** — se diferente, cliente aciona embarcador (regra fiscal/contratual)
+3. **Janela de retorno: até 2h** durante horário comercial após receber dados (não 30min)
+4. **NUNCA pedir nota 10** — pedir sinceridade na avaliação
+5. **Pedido de avaliação:** condicional (não pedir se cliente saiu irritado, >7d, >3 mensagens)
 
-## Volume atual
+## 13. Onde está
 
-- 119 reclamações em `reclamacoes_ra` (legacy)
-- 64 em `cs_ra_reclamacoes` (canonical)
-- 5 SKILLs ativos com auto-sync
-- Pipeline 100% funcional desde 2026-05-01
+- **Schema:** [zyon-agents/ra1000/migrations/](https://github.com/ZZYONBR/zyon-agents/tree/main/ra1000/migrations) (001 schema base, 002 routing, novas migrations Supabase MCP)
+- **Helpers Python:**
+  - `zyon-agents/ra1000/lib/gmail_ra1000.py` — OAuth Gmail (read inbox, send email)
+  - `zyon-agents/ra1000/lib/inbox_watcher.py` — polling RA emails
+  - `zyon-agents/ra1000/lib/sync_xlsx_to_supabase.py` — batch upsert XLSX
+  - `zyon-agents/ra1000/scripts/oauth_setup.py` — one-time refresh_token
+- **SKILLs:** `~/.claude/scheduled-tasks/reclameaqui-*` (Mac mini)
+- **Secrets:** `~/.zshrc` Mac mini (`RA_INGEST_TOKEN`, `RA1000_GMAIL_*`)
+  + Supabase Vault (`ESL_TOKEN`, `ICP_A1_PFX_*` futuro)
 
-## Onde está
+## 14. Pendências pra próxima sessão
 
-- **SKILLs**: `~/.claude/scheduled-tasks/reclameaqui-*` no Mac mini
-- **Migrations**: [`zyon-agents/ra1000/migrations/`](https://github.com/ZZYONBR/zyon-agents/tree/main/ra1000/migrations)
-- **Edge functions**: [`zyon-agents/ra1000/edge-functions/`](https://github.com/ZZYONBR/zyon-agents/tree/main/ra1000/edge-functions)
-- **Painel**: [ra.zzyon.com](https://ra.zzyon.com)
+| # | Item | Responsável | Estimativa |
+|---|---|---|---|
+| 1 | Frontend `/m/<token>` em torre-ra | frontend chat | 2h |
+| 2 | Edge function `cs-ra-magic-auth` | backend | 1h |
+| 3 | Magic links pros 6 líderes restantes | esta sessão (1 INSERT cada) | 5min |
+| 4 | SKILL `ra1000-watcher` cron `*/15min` | esta sessão | 1h |
+| 5 | SKILL `ra1000-replier` (cliente respondeu → ESL → followup) | esta sessão | 1h |
+| 6 | SKILL `ra1000-avaliador` cron `*/30min` | esta sessão | 30min |
+| 7 | Cadastrar SKILLs como Scheduled Tasks no Mac mini | user (1 click cada) | 15min |
+
+## 15. Painel ao vivo
+
+[ra.zzyon.com](https://ra.zzyon.com) — Torre RA1000 com:
+
+- **Aba RA1000 Pulso** (default): visão canônica nova com KPIs hoje, pendentes por filial, aging, score por filial
+- **Aba Tratativa**: visão legada com texto integral + status ESL
+
+## 16. Caso de referência: Wallace Murillo (RA #247604999)
+
+Primeira reclamação processada fim-a-fim com o pipeline novo:
+
+- **Cliente:** Wallace Murillo de Oliveira Rodrigues
+- **CPF:** 424.428.158-42 (validado)
+- **Embarcador:** Terabyte (pedido 8036412)
+- **Filial:** SAO → Gabriel
+- **Cenário:** 3 tentativas falhas com motorista marcando "endereço não localizado"; 2ª reclamação RA do mesmo cliente (1ª ficou sem resposta)
+- **Fluxo aplicado:** C grave + pedido de dados (limite operacional NF)
+- **Resposta postada:** 2026-05-04 11h36 BRT
+- **Histórico:** 13 eventos registrados em `historico_log`
+- **Notificações:** Email pra base SAO + Jimmy CC + Rubens BCC + WhatsApp pra Gabriel/Kevin/Jimmy/Rubens
