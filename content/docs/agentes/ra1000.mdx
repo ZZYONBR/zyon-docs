@@ -335,7 +335,92 @@ Sem o INSERT na legacy, a UI atual não enxerga a reclamação. Pendente:
 trigger bidirecional `cs_ra_reclamacoes ↔ reclamacoes_ra` pra evitar
 dessincronia (próxima migration).
 
-## 17. Caso de referência: Wallace Murillo (RA #247604999)
+## 17. Aba "Configurações → Notificações" (especificação do frontend)
+
+Pedido Rubens 2026-05-04: aba no `ra.zzyon.com` pra cadastrar emails e
+selecionar regras de quem recebe cada tipo de evento.
+
+### Backend (já aplicado)
+
+Tabelas:
+
+```sql
+cs_ra_evento_tipos (10 eventos canônicos)
+cs_ra_notification_rules (regras selecionáveis por filial+evento+canal)
+cs_ra_emails_extras (emails/whatsapps adicionais por filial+evento)
+```
+
+Função helper:
+
+```sql
+SELECT * FROM cs_ra_resolver_destinatarios('reclamacao_nova', 'SAO');
+-- retorna: lider_filial + jimmy_cc + rubens_bcc + extras configurados
+```
+
+### Eventos canônicos (10)
+
+```
+reclamacao_nova           Nova reclamação detectada
+resposta_postada          Resposta postada no RA
+cliente_respondeu         Cliente respondeu na reclamação
+aguardando_data_gestor    Aguardando confirmação de data (Fluxo A)
+escalacao_rubens          Timeout 1h30 sem resposta gestor
+avaliacao_alta            Cliente avaliou nota >= 8 + Voltaria=Sim
+avaliacao_baixa           Cliente avaliou nota < 5 OU Voltaria=Não
+treplica_disparada        Resposta nossa em avaliação negativa
+reincidencia_cliente      Cliente já tinha reclamação anterior sem resposta
+falha_tecnica             Erro de scraping/API/OAuth
+```
+
+### Frontend pendente (torre-ra)
+
+Aba `Configurações → Notificações` deve mostrar:
+
+**1. Tabela de emails extras** (`cs_ra_emails_extras`)
+- Colunas: rótulo · email · whatsapp · filial · eventos · ativo · ações
+- Botão "Adicionar email extra"
+- Modal: nome do contato, email/WA, filial (dropdown — filial específica ou todas), eventos (multi-select dos 10) — ativo
+
+**2. Regras de notificação** (`cs_ra_notification_rules`)
+- Lista por evento → filial → canal (email/whatsapp/ambos)
+- Toggle "Incluir líder filial automático"
+- Toggle "Incluir Jimmy em CC"
+- Toggle "Incluir Rubens em BCC"
+- Custom CC/BCC adicionais
+
+**3. Preview de resolução**
+- Selecionar `evento + filial` → mostrar quem RECEBERIA usando `cs_ra_resolver_destinatarios()`
+- Útil pra validar antes de salvar
+
+**4. Permissões**
+- Apenas líder com perfil `cargo='admin'` ou `Rubens` pode editar
+- Outros líderes só visualizam
+
+### Validações no frontend
+
+- Email format (regex padrão)
+- WhatsApp format BR (E.164: `+55XXXXXXXXXXX`)
+- Pelo menos 1 canal preenchido (email OU whatsapp)
+- Filial: dropdown com codes de `cs_ra_routing_rules.filial_codigo`
+
+### Endpoints sugeridos (a criar como edge function ou Supabase RPC)
+
+```
+GET /api/ra/eventos                       → lista eventos canônicos
+GET /api/ra/notification-rules            → lista regras configuradas
+POST /api/ra/notification-rules           → criar regra
+PUT /api/ra/notification-rules/:id        → editar
+DELETE /api/ra/notification-rules/:id     → desativar (soft delete: ativo=false)
+
+GET /api/ra/emails-extras                 → lista emails extras
+POST /api/ra/emails-extras                → adicionar
+PUT /api/ra/emails-extras/:id             → editar
+DELETE /api/ra/emails-extras/:id          → desativar
+
+GET /api/ra/resolver?evento=X&filial=Y    → preview destinatários
+```
+
+## 18. Caso de referência: Wallace Murillo (RA #247604999)
 
 Primeira reclamação processada fim-a-fim com o pipeline novo:
 
