@@ -312,7 +312,30 @@ NUNCA usar:
 - **Aba RA1000 Pulso** (default): visão canônica nova com KPIs hoje, pendentes por filial, aging, score por filial
 - **Aba Tratativa**: visão legada com texto integral + status ESL
 
-## 16. Caso de referência: Wallace Murillo (RA #247604999)
+## 16. ⚠️ Pegadinha importante — escrita em DUAS tabelas
+
+O painel `ra.zzyon.com` lê das views `vw_ra_monitor` / `vw_ra_tratativa`,
+que derivam da tabela **legacy** `reclamacoes_ra`. A canonical nova
+`cs_ra_reclamacoes` NÃO alimenta o painel atual.
+
+**Toda nova reclamação processada precisa escrever em DUAS tabelas:**
+
+```sql
+-- 1) Legacy (alimenta painel ra.zzyon.com)
+INSERT INTO reclamacoes_ra (numero_ra, data, cliente, ...)
+
+-- 2) Canonical (alimenta vw_cs_ra_pulso_hoje + futuro UI v2)
+INSERT INTO cs_ra_reclamacoes (ra_id, cliente_nome, ..., historico_log)
+```
+
+Constraint check em `reclamacoes_ra.status_ra`:
+`'aberta' | 'respondida' | 'resolvida' | 'nao_resolvida' | 'em_replica' | 'aguardando'`
+
+Sem o INSERT na legacy, a UI atual não enxerga a reclamação. Pendente:
+trigger bidirecional `cs_ra_reclamacoes ↔ reclamacoes_ra` pra evitar
+dessincronia (próxima migration).
+
+## 17. Caso de referência: Wallace Murillo (RA #247604999)
 
 Primeira reclamação processada fim-a-fim com o pipeline novo:
 
