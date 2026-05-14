@@ -47,7 +47,7 @@ Validação:
 - EXPLAIN antes: Seq Scan, 42ms
 - EXPLAIN depois: Index Scan, **0,088ms (478× mais rápido)**
 - `fn_pagador_canonical('WHIRLPOOL S.A.')`: 10,67ms total
-- REFRESH manual de `mv_cli360_data`: completou em <120s (statement_timeout)
+- REFRESH manual de `mv_cli360_data`: completou em &lt;120s (statement_timeout)
 
 `tracking.awbs` JÁ tinha `idx_tracking_awbs_pagador WHERE pagador IS NOT NULL`, não precisava de novo índice.
 

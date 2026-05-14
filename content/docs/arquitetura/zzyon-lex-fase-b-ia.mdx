@@ -102,8 +102,8 @@ Trocar para 4.7 depois de validação cuidadosa de 5-10 análises com 4.5.
 **Para escala 100 processos**: ~US$ 40.
 
 **Sem rate limit no frontend** — não há controle de quantas vezes alguém pode clicar "Analisar". Mitigação para Fase B.1:
-- Frontend pode mostrar versão atual no painel e desabilitar o botão se a última análise foi há <24h
-- Edge function pode rejeitar se ultima_analise_ia < N minutos atrás
+- Frontend pode mostrar versão atual no painel e desabilitar o botão se a última análise foi há &lt;24h
+- Edge function pode rejeitar se ultima_analise_ia &lt; N minutos atrás
 
 **Why:** Rubens pediu Fase B (IA preenchendo automaticamente análise + docs + plano). Backend (edge function) + frontend (botão + modal preview) entregues. Aguarda secret ANTHROPIC_API_KEY no Supabase para ativar.
 

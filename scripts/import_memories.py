@@ -132,12 +132,94 @@ def derive_description(fm: dict, content: str) -> str:
     return "Memória institucional ZZYON"
 
 
+def escape_mdx_unsafe(body: str) -> str:
+    """Escapa `<` em contextos onde MDX trataria como JSX, preservando blocos de código.
+
+    Regras:
+      - Dentro de fenced code (``` ou ~~~): preserva tudo
+      - Dentro de inline code (`...`): preserva tudo
+      - Fora: substitui `<` por `&lt;` SE seguido por:
+          - dígito (ex: `<5`, `<3min`)
+          - espaço/operador (ex: `< nada`)
+          - letra que NÃO é tag HTML/JSX válida (token, ip, secret_name, ...)
+    """
+    SAFE_TAGS = {
+        "a", "br", "code", "em", "hr", "img", "i", "kbd", "mark", "ol", "p", "pre",
+        "small", "span", "strong", "sub", "sup", "table", "tbody", "td", "tfoot",
+        "th", "thead", "tr", "ul", "li", "blockquote", "div", "details", "summary",
+        "video", "audio", "source", "abbr",
+    }
+    out_lines: list[str] = []
+    in_fence = False
+    fence_marker: str | None = None
+    for line in body.splitlines():
+        stripped = line.lstrip()
+        # Detecta abertura/fechamento de fenced code
+        if stripped.startswith("```") or stripped.startswith("~~~"):
+            marker = stripped[:3]
+            if not in_fence:
+                in_fence = True
+                fence_marker = marker
+            elif fence_marker and stripped.startswith(fence_marker):
+                in_fence = False
+                fence_marker = None
+            out_lines.append(line)
+            continue
+        if in_fence:
+            out_lines.append(line)
+            continue
+        # Processa linha fora de fence — preserva inline code (`...`)
+        result_chars: list[str] = []
+        i = 0
+        n = len(line)
+        while i < n:
+            ch = line[i]
+            if ch == "`":
+                # Acha fim do inline code
+                end = line.find("`", i + 1)
+                if end == -1:
+                    result_chars.append(line[i:])
+                    break
+                result_chars.append(line[i : end + 1])
+                i = end + 1
+                continue
+            if ch == "<":
+                next_ch = line[i + 1] if i + 1 < n else ""
+                if next_ch.isalpha():
+                    # Verifica se é tag HTML/JSX conhecida (terminada por `>` ou espaço)
+                    end = i + 1
+                    while end < n and (line[end].isalnum() or line[end] in "-_"):
+                        end += 1
+                    tag = line[i + 1 : end].lower()
+                    if tag in SAFE_TAGS or tag.startswith(("auto", "br", "hr")):
+                        result_chars.append(ch)
+                        i += 1
+                        continue
+                    # Não é tag conhecida — escapa
+                    result_chars.append("&lt;")
+                    i += 1
+                    continue
+                elif next_ch == "/":
+                    # Closing tag — geralmente seguro
+                    result_chars.append(ch)
+                    i += 1
+                    continue
+                else:
+                    # `<` seguido de dígito, espaço, etc. — escapa
+                    result_chars.append("&lt;")
+                    i += 1
+                    continue
+            result_chars.append(ch)
+            i += 1
+        out_lines.append("".join(result_chars))
+    return "\n".join(out_lines)
+
+
 def clean_body(body: str) -> str:
     """Remove system-reminders e normaliza body para MDX."""
     body = SYSTEM_REMINDER_RE.sub("", body)
-    # Remove ::: callouts no estilo claude (incompatíveis com fumadocs)
     body = body.strip()
-    # Escapa <fence|content-name> se aparecer
+    body = escape_mdx_unsafe(body)
     return body
 
 

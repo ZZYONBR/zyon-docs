@@ -169,10 +169,10 @@ URL detalhe: `/area-da-empresa/reclamacoes/<COD>` (COD é hash 16 chars não-seq
 
 ## Métricas a acompanhar (KPIs)
 
-- Tempo médio captura → resposta postada (meta: <2h)
+- Tempo médio captura → resposta postada (meta: &lt;2h)
 - Taxa aprovação 1ª tentativa Rubens (meta: ≥80%)
 - Taxa AJUSTAR Rubens (meta: ≤20%)
-- Tempo médio gestor responder (meta: <2h)
+- Tempo médio gestor responder (meta: &lt;2h)
 - Nota média final cliente (meta: ≥8.5)
 - % cliente "voltaria sim" (meta: ≥85%)
 - % "resolvido sim" (meta: ≥90%)
@@ -189,7 +189,7 @@ URL detalhe: `/area-da-empresa/reclamacoes/<COD>` (COD é hash 16 chars não-seq
 ## Onda 1B (2026-05-06) — schema upgrade aplicado
 
 **Triggers em produção:**
-- `cs_ra_sync_to_legacy()` — AFTER INSERT/UPDATE em cs_ra_reclamacoes → UPSERT automático em reclamacoes_ra (UI atualiza sem dual-write manual). Pula IDs curtos (legados <8 dígitos).
+- `cs_ra_sync_to_legacy()` — AFTER INSERT/UPDATE em cs_ra_reclamacoes → UPSERT automático em reclamacoes_ra (UI atualiza sem dual-write manual). Pula IDs curtos (legados &lt;8 dígitos).
 - `cs_ra_sync_dispatch_to_canonical()` — espelha dispatch_status legacy → canônica. Usa `pg_trigger_depth() > 1` pra evitar loop.
 
 **Helpers SQL:**

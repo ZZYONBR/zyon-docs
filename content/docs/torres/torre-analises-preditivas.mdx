@@ -12,7 +12,7 @@ Em resposta direta a esta memória, foram entregues as 2 primeiras análises pre
 
 | # | View canônica | Métrica | Modelo | Onde aparece |
 |---|---|---|---|---|
-| 1 | `public.vw_previsao_sla_mes` | OTD previsto fim do mês | Regressão linear `regr_slope/regr_intercept/regr_r2` sobre OTD diário; fallback para média quando dias<7 ou R²<0,3; cap [0,100] | torre-ceo · seção "Inteligência Preditiva" |
+| 1 | `public.vw_previsao_sla_mes` | OTD previsto fim do mês | Regressão linear `regr_slope/regr_intercept/regr_r2` sobre OTD diário; fallback para média quando dias&lt;7 ou R²&lt;0,3; cap [0,100] | torre-ceo · seção "Inteligência Preditiva" |
 | 2 | `public.vw_anomalia_ocorrencias` | Picos de ocorrência por pagador×tipo | z-score (média 7d vs baseline 30d-7d, σ baseline); thresholds 2 (ALERTA) e 3 (CRITICO) | torre-ceo · seção "Inteligência Preditiva" |
 
 Cada view inclui `acao_sugerida` (prescritivo) — nunca só o número.
