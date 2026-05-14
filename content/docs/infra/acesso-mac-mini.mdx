@@ -1,0 +1,107 @@
+---
+title: "Acesso ao Mac mini"
+description: "Modelo granular de acesso ao Mac mini de produção · Tailscale SSH ACL + sudoers · sem root completo para ninguém além do Rubens"
+---
+
+> Plano aprovado por Rubens 10/05/2026 · em rascunho até aplicação efetiva pelo Owner do tailnet.
+
+## Status
+
+| Item | Estado |
+|---|---|
+| Tailscale ACL JSON | ✅ pronto · `zyon-agents/daedalus/infra/tailscale-acl.json` |
+| sudoers-zzyon-ti | ✅ pronto · `zyon-agents/daedalus/infra/sudoers-zzyon-ti` |
+| Aplicar ACL no tailnet | ⏳ Rubens (Owner) |
+| Tag `tag:prod-mac-mini` no Mac mini | ⏳ Rubens |
+| Convidar Hélio para tailnet | ⏳ Rubens |
+| Aplicar sudoers no Mac mini | ⏳ Rubens |
+| Validar com Hélio | ⏳ |
+
+Runbook completo: [`zyon-agents/daedalus/infra/README_ACESSO_MAC_MINI.md`](https://github.com/ZZYONBR/zyon-agents/blob/main/daedalus/infra/README_ACESSO_MAC_MINI.md)
+
+## Modelo · 2 camadas
+
+### Camada 1 · Tailscale SSH (identidade + rede)
+
+- Identidade Tailscale (Google SSO via `@icaroexpress.com`)
+- ACLs definem quem acessa qual host/porta
+- SSH com certs auto-rotacionados a cada 12h para TI
+- Logs centralizados no Tailscale Console
+
+### Camada 2 · sudoers granular (comandos no Mac mini)
+
+Hélio loga como user `rubens` mas só consegue rodar comandos pré-aprovados.
+
+## Matriz de permissão
+
+| Ação | Rubens (owner) | Hélio (TI) | Aline (diretoria) |
+|---|---|---|---|
+| SSH shell completo | ✅ | ✅ (check 12h) | ❌ |
+| `pm2 restart claudio` | ✅ | ✅ | ❌ |
+| `pm2 logs` | ✅ | ✅ | ❌ |
+| `launchctl start com.zzyon.*` | ✅ | ✅ | ❌ |
+| `docker logs evolution` | ✅ | ✅ | ❌ |
+| `tail` em `~/zyon-agents/logs/` | ✅ | ✅ | ❌ |
+| `sudo bash`, `sudo su` | ✅ | ❌ | ❌ |
+| Ler `.env`, certificados | ✅ | ❌ | ❌ |
+| UI Langfuse :3000 | ✅ | ✅ | ✅ |
+| UI Supabase Studio :8100 | ✅ | ✅ | ✅ |
+| UI Evolution :8080 | ✅ | ✅ | ✅ |
+| Postgres direto :5432 | ✅ | ❌ | ❌ |
+
+## Comandos para Hélio (referência rápida)
+
+```bash
+# Conectar via Tailscale SSH (uma vez por 12h é pedido confirmar identidade)
+tailscale ssh rubens@mac-mini-de-rubens
+
+# Ver agentes Python rodando
+pm2 list
+
+# Ver últimas linhas log do Cláudio
+sudo pm2 logs claudio --lines 100
+
+# Reiniciar Cláudio
+sudo pm2 restart claudio
+
+# Ver crons launchd do ZZYON
+sudo launchctl list | grep zzyon
+
+# Rodar FAT-JC importer agora
+sudo launchctl start com.zzyon.atlas.fat-jc
+
+# Ver últimas linhas log do FAT-JC
+sudo tail -n 100 /Users/rubens/zyon-agents/logs/fat_jc.err.log
+
+# Evolution status
+sudo docker ps | grep evolution
+sudo docker logs evolution --tail 50
+```
+
+## UI web (Tailscale)
+
+Após Hélio entrar no tailnet, acessa direto no navegador:
+
+- **Langfuse**: http://mac-mini-de-rubens:3000
+- **Supabase Studio**: http://mac-mini-de-rubens:8100
+- **Evolution API**: http://mac-mini-de-rubens:8080
+
+## Onda futura · Painel ZZYON Admin
+
+Quando viramos as tarefas operacionais em **botões web** em `app.zzyon.com/platform/#admin`, Hélio para de precisar SSH para operação rotineira. SSH vira só break-glass.
+
+Trabalho do **DAEDALUS Sprint 2**.
+
+## Onboarding de novo usuário TI
+
+1. Adicionar email em `group:ti` do `tailscale-acl.json` (no zyon-agents)
+2. PR no GitHub → Rubens aprova
+3. Aplicar ACL no Tailscale Console
+4. Convidar usuário pelo email no tailnet
+5. Validar acesso
+
+Nenhuma senha trocada, nenhuma chave SSH criada. Identidade unificada via Tailscale.
+
+## Rescisão de acesso
+
+Remover email de `group:ti` → propagação em menos de 1 minuto em todo tailnet. Sem precisar tocar no Mac mini.

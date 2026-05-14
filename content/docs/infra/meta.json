@@ -2,6 +2,7 @@
   "title": "Infraestrutura",
   "pages": [
     "maquinas",
+    "acesso-mac-mini",
     "compliance-fici-arquitetura",
     "datajud-privacidade-partes",
     "evolution-api-credenciais",
