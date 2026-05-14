@@ -1,0 +1,96 @@
+---
+title: "Usuários e papéis de acesso à Torre Ícaro"
+description: "Lista oficial de 35 usuários + mapeamento papel/centro/filial; domínio @icaroexpress.com (NÃO .com.br); auth via Supabase"
+---
+**🔴 ATENÇÃO — domínio oficial é `@icaroexpress.com`** (sem .br). Tudo que for "com.br" deve ser corrigido.
+
+**35 usuários cadastrados (32 + 3 gestores SP):**
+
+## Diretoria (2)
+- Aline Celino Cavalcanti de Oliveira — `aline.cavalcanti@icaroexpress.com` — JOINVILLE — Diretora (sócia-fundadora, lidera RH)
+- Rubens Goncalves de Oliveira Junior — `rubens@icaroexpress.com` — Diretor Executivo (CEO)
+
+## TI (1) — corrigido (era listado como Diretoria por engano)
+- **Hélio** — `helio@icaroexpress.com` — **TI** — APENAS CADASTRAR no banco; NÃO ENVIAR convite/email-mágico até autorização explícita do Rubens
+
+## Gestores SP (3 — adicionais)
+- Gabriel Araujo — `gabriel.araujo@icaroexpress.com` — Gestor de Operacional SP
+- Luan Vidal — `luan.vidal@icaroexpress.com` — Gerente Geral
+- Luiz Ratti — `luiz.ratti@icaroexpress.com` — Gerente de Operações, Frota e Zeladoria SP
+
+## Comercial (4)
+- Geovani Luiz Rizzo — `geovani.r@icaroexpress.com` — Analista Comercial Pleno
+- Jimmy Cristy de Brito Fernandes — `jimmy.cristy@icaroexpress.com` — Supervisor Comercial
+- Wellenton Abba de Godoi — `wellenton@icaroexpress.com` — Analista Comercial Pleno
+
+## Operacional / Expedição / Tráfego (10)
+- Anderson de Souza — `anderson.sousa@icaroexpress.com` — Ajudante (SP, Next Day)
+- Andre Luiz de Oliveira Gomes — `andre.gomes@icaroexpress.com` — Aux. Expedição (RJ)
+- Ariston Santos de Jesus — `ariston.jesus@icaroexpress.com` — Líder Operação (SP)
+- Davi Araujo da Silva Barboza — `atendimentorj@icaroexpress.com` — Analista Operacional (RJ)
+- Gleice Cristina Martins — `atendimento.sp2@icaroexpress.com` — Assistente Operacional (SP)
+- Leonardo Henrique Blasco — `leonardo.blasco@icaroexpress.com` — Líder Distribuição (SP)
+- Luiz Augusto da Silva Ott — `luiz.ott@icaroexpress.com` — Expedidor (JOI)
+- Rafael Gomes da Silva — `rafael.gomes@icaroexpress.com` — Supervisor Operacional (Campinas)
+- Roberto Jeronimo dos Santos — `roberto@icaroexpress.com` — Encarregado Tráfego (JOI)
+- Victor Vincent Pfiffer Gomes — `victor.gomes@icaroexpress.com` — Assistente Operacional/Tráfego (JOI)
+- Thais Terezinha Heiler — `thais@icaroexpress.com` — Coordenadora Operações e Processos (JOI)
+
+## Atendimento / CS / Pós-Vendas (8)
+- Bianca de Moraes Lopes — `bianca.lopes@icaroexpress.com`
+- Carlos Alberto Burgo Sanches — `carlos.sanches@icaroexpress.com`
+- Kevin Willian Nascimento Alves — `kevin@icaroexpress.com`
+- Marcely Josilene de Almeida — `marcely@icaroexpress.com`
+- Raimunda Nonata Cavalcante Da Pascoa — `raimunda.pascoa@icaroexpress.com`
+- Ricardo Henrique Moreira Lopes — `ricardo.lopes@icaroexpress.com`
+- Silvana de Borba dos Santos — `silvana.santos@icaroexpress.com` — Analista de Atendimento
+
+## Financeiro (5)
+- Andrieli Freita Medeiros — `andrieli.medeiros@icaroexpress.com` — Analista Indenização
+- Carlos Roberto Jungles — `carlos.jungles@icaroexpress.com` — Assistente Financeiro Pleno
+- Daniela de Oliveira — `daniela.oliveira@icaroexpress.com` — Analista Financeiro
+- Franciele Hardt dos Santos — `franciele.santos@icaroexpress.com` — Assistente Financeiro
+- Marcus Vinicius Nogueira dos Santos — `marcus.santos@icaroexpress.com` — Analista Financeiro
+
+## Monitoramento / Controladoria (1)
+- Bruno Lemes Haag — `bruno.haag@icaroexpress.com` — Assistente Logística (Monitoramento)
+
+## TI / Inovação (1)
+- Gabriel Pereira Sbardelini — `gabriel.sbardelini@icaroexpress.com` — Assistente Tecnologia (Desenvolvimento)
+
+## Qualidade / Regulatório (1)
+- Caroline de Souza — `regulatorio@icaroexpress.com` — Farmacêutica Responsável
+
+## RH (1)
+- Maria Eduarda Sant Ana — `rh@icaroexpress.com` — Analista RH
+
+## Mapeamento papel → visão Torre (RBAC)
+
+| Papel | Acesso default | Painéis principais |
+|---|---|---|
+| **DIRETORIA** | Tudo | Cli360 (margem), SLA Geral, Forecast, Anomaly Detection |
+| **GERENTE / COORDENADOR / SUPERVISOR** | Filiais que gerencia | SLA filial, ranking atrasos, decisão semanal |
+| **OPS / TRAFEGO / EXPEDIÇÃO / LIDER** | Filial própria | Fretes vencidos, motorista parado, risco atraso real-time |
+| **CS / ATENDIMENTO / PÓS-VENDAS** | Tickets, ocorrências em aberto | Tratativas pendentes, eventos por cliente |
+| **COMERCIAL** | Cli360 (volume + churn risk) | Carteira, oportunidades, propostas |
+| **FINANCEIRO** | Margem, contas a receber | Receita por cliente, inadimplência (futuro) |
+| **TI** | Admin / Saúde plataforma | Logs, syncs, status MV |
+| **QUALIDADE** | Avarias, extravios, sinistros | Indicadores qualidade, ANVISA |
+| **RH** | Indicadores RH (futuro) | Headcount, turnover (HERA agent) |
+
+**Auth — abordagem 2 fases (decisão Rubens):**
+- **Fase 1 (HOJE):** email-mágico Supabase Auth — zero setup, funciona com qualquer @icaroexpress.com
+- **ACESSO INICIAL FASE 1:** SOMENTE Rubens (`rubens@icaroexpress.com`) e Hélio (`helio@icaroexpress.com`) — outros 33 usuários ficam liberados em fases posteriores conforme cada papel/painel for sendo entregue
+- **Fase 2 (~2 semanas):** Microsoft Azure AD / Entra ID SSO — emails @icaroexpress.com hospedados na Microsoft 365; Rubens é admin → vai criar App Registration
+- Filtro de domínio: `auth.email LIKE '%@icaroexpress.com'`
+- NÃO usar Google SSO (zzyon Google Workspace é outra empresa, não serve para @icaroexpress.com)
+
+**How to apply:**
+- Domínio sempre `@icaroexpress.com` (NÃO .com.br) em qualquer lugar do código/UI
+- Cadastrar usuários no Supabase Auth + tabela `usuario_perfil` com (email, papel, filiais_permitidas)
+- View Torre filtra dados conforme `auth.uid()` → `usuario_perfil.papel`
+- Diretoria vê tudo; demais veem só sua filial/centro de custo
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>torre_usuarios_acesso.md</code></em></small>

@@ -1,4 +1,9 @@
 {
-  "title": "Automação",
-  "pages": ["doc-auditor"]
+  "title": "Automação & ETL",
+  "pages": [
+    "doc-auditor",
+    "folha-pagamento-layout",
+    "ossowski-gate-l2-5",
+    "pichau-cnpj"
+  ]
 }

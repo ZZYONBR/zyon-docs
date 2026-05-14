@@ -1,4 +1,12 @@
 {
   "title": "Runbooks",
-  "pages": ["deploy-vercel"]
+  "pages": [
+    "deploy-vercel",
+    "data-integrity-alertas-routing",
+    "esl-caminho-oficial-extracao",
+    "esl-compras-xml-report",
+    "esl-data-export-api",
+    "esl-graphql-lookup",
+    "esl-postman-docs-oficial"
+  ]
 }

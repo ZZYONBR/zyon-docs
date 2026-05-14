@@ -1,0 +1,113 @@
+---
+title: "Análises preditivas obrigatórias na Torre de Controle"
+description: "Torre Ícaro deve ir além de descritivo (o que aconteceu) — incluir preditivo (o que vai acontecer) e prescritivo (o que fazer)"
+---
+**Solicitação direta do Rubens:** Torre de Controle deve trazer **análises preditivas**, não só dashboards descritivos.
+
+---
+
+## Onda 3 v0 entregue (10/05/2026)
+
+Em resposta direta a esta memória, foram entregues as 2 primeiras análises preditivas em SQL puro (sem Edge Function ainda — segue Onda 3 v1).
+
+| # | View canônica | Métrica | Modelo | Onde aparece |
+|---|---|---|---|---|
+| 1 | `public.vw_previsao_sla_mes` | OTD previsto fim do mês | Regressão linear `regr_slope/regr_intercept/regr_r2` sobre OTD diário; fallback para média quando dias<7 ou R²<0,3; cap [0,100] | torre-ceo · seção "Inteligência Preditiva" |
+| 2 | `public.vw_anomalia_ocorrencias` | Picos de ocorrência por pagador×tipo | z-score (média 7d vs baseline 30d-7d, σ baseline); thresholds 2 (ALERTA) e 3 (CRITICO) | torre-ceo · seção "Inteligência Preditiva" |
+
+Cada view inclui `acao_sugerida` (prescritivo) — nunca só o número.
+
+Primeira execução em prod (10/05/2026):
+- Previsão SLA mai/2026 = **97,41%** (NO_ALVO, método=média_atual com 5 dias)
+- 2 anomalias reais detectadas: MLOG ARMAZEM "Comprovante digitalizado" 29→160/dia (z=2,76 ALERTA); INTELBRAS "Mercadoria Lida na unidade" 46→139/dia (z=2,35 ALERTA)
+
+## Onda 3 v1 entregue (10/05/2026)
+
+Continuação direta de v0. Foco: SQL puro (ML pesado fica para quando Mac mini tiver FastAPI Python dedicado).
+
+| # | View | Métrica | Modelo | Estado em prod |
+|---|---|---|---|---|
+| 3 | `public.vw_churn_risk_clientes` ✓ **JÁ EXISTIA** (não fui eu) | Score churn 0-100 | Cruza volume 30d×30-60d×180d + atraso 30d×180d + pendências + cobranças + RA 90d + VIP | **Encontrou EUROSTAR -59% (R$10M), BRINGIT sumiu 47d (R$3M), PICHAU VIP zerou em 30d, SERGIO PNEUS -56,6% (R$2M)** |
+| 4 | `public.vw_forecast_demanda_filial` (nova) | Demanda fretes próximos 7d | Média dia-da-semana × 90d, com sazonalidade vs média geral | JOI seg=464 (+18pp), SAO seg=732 (+22pp), CPQ seg=150 (+30pp), RIO seg=226 |
+| 5 | `public.vw_risco_atraso_pendente` (nova) | Score risco 0-100 por CTe | Heurística 40/40/20 — pagador hist + rota hist + urgência | **10+ JA_ATRASADO** (BUD COMERCIO 13d×3, WHIRLPOOL AM 16d, PLUS CARGO 68d, VOLT ES 89d) |
+| 6 | `public.vw_eta_ajustado` (nova) | ETA real = ETA ESL + lag médio rota 60d | Lag médio + stddev por rota origem→UF | Vazio em 10/05 (nenhuma rota com ABS(lag)≥1d para fretes em trânsito) |
+
+Cada view tem `acao_sugerida` (prescritivo) — ex: *"Cliente sumiu: 0 fretes em 30d (era 8 antes). Acionar comercial AGORA."*
+
+Integrados no torre-ceo (`pred-churn` + `pred-forecast` cards):
+- **Churn Top-8** clientes CRITICO/ALTO/INATIVO com R$ 90d, variação %, dias inativo
+- **Forecast amanhã** Top-8 filiais com fretes esperados + sazonalidade
+
+`vw_risco_atraso_pendente` e `vw_eta_ajustado` ficam disponíveis para integração nas torres profundas (torre-cargas, torre-comercial) — granularidade CTe não cabe na CEO View.
+
+## Onda 3 v2 (futuro — exige Python infra)
+
+- Risco atraso XGBoost (atual é heurística — ganho esperado de precisão 20-30pp se treinado bem)
+- Forecast Prophet/ARIMA (atual é média DOW — captura sazonalidade simples)
+- Embarcadores problemáticos via k-means
+- ETA preditivo com modelagem por features (peso, valor, dia)
+
+Bloqueador: precisa FastAPI Python no Mac mini (DAEDALUS Sprint 1+) com endpoint para inferência.
+
+**Camadas de análise a entregar (do simples → avançado):**
+
+| Camada | Pergunta | Exemplo na Torre |
+|---|---|---|
+| **Descritivo** ✅ | "O que aconteceu?" | SLA mês = 90,8% |
+| **Diagnóstico** | "Por que aconteceu?" | FLN com 67% pq teve 60% de "endereço incompleto" do embarcador X |
+| **Preditivo** ⭐ | "O que VAI acontecer?" | "Esse CTe tem 73% de chance de atrasar — embarcador histórico problemático + rota crítica" |
+| **Prescritivo** ⭐ | "O que devo fazer?" | "Despache amanhã pela manhã — janela de risco menor" |
+
+**Análises preditivas candidatas (priorizar 3-5 pra MVP):**
+
+1. **Previsão de SLA do mês corrente**
+   - "Mês fechará em 89% (vs meta 95%) se mantiver ritmo atual"
+   - Cálculo: regressão linear OTD diário + sazonalidade
+   - Ação: Gerência ajusta antes do fechamento
+
+2. **Risco de atraso por CTe (real-time)**
+   - Score 0-100% de "vai atrasar" em cada CTe ativo
+   - Features: pagador histórico, rota, dia da semana, peso, manifesto
+   - Modelo: gradient boosting (XGBoost) treinado com 30k fretes históricos
+   - Ação: Ops prioriza CTes de alto risco
+
+3. **Churn risk por cliente**
+   - "PICHAU caindo 15% volume vs últimos 90 dias — risco médio"
+   - Cálculo: comparação volume móvel + tendência + ocorrências negativas
+   - Ação: Comercial agenda reunião preventiva
+
+4. **Anomaly detection — picos atípicos de ocorrência**
+   - "MLOG ARMAZEM teve 3x mais 'recusa por endereço' nos últimos 7 dias"
+   - Cálculo: z-score sobre média móvel 30d
+   - Ação: alerta automático CS
+
+5. **Forecast de demanda por filial**
+   - "JOI deve ter ~1.150 fretes amanhã, +8% vs hoje (semana de fim de mês)"
+   - Cálculo: ARIMA / Prophet com sazonalidade semanal/mensal
+   - Ação: Ops dimensiona equipe + frota
+
+6. **Embarcadores problemáticos (cluster)**
+   - Agrupa embarcadores por padrão de ocorrências
+   - "5 embarcadores no cluster 'endereço incompleto crônico' geram 40% das justificadas SP"
+   - Ação: Comercial aborda em bloco, exige melhoria de cadastro
+
+7. **Tempo previsto de entrega ajustado (vs ESL)**
+   - ESL diz "entrega 27/04" — modelo Ícaro diz "provável 28/04 (rota X tem atraso médio 1.3d nas últimas 4 semanas)"
+   - Ação: alerta cliente proativamente
+
+**How to apply:**
+- Cada painel da Torre deve ter PELO MENOS 1 widget preditivo (não só números)
+- Usar Postgres + funções SQL pra previsões simples (ARIMA, regressão, z-score)
+- Modelos mais complexos (XGBoost, Prophet) via Edge Functions Python ou serviço externo
+- Sempre exibir nível de confiança (ex: "73% probabilidade ± 8pp")
+- Sempre acompanhar de **ação sugerida** (prescritivo)
+
+**Why:**
+- Diferencial competitivo da Torre Ícaro vs TMS comum (ESL, Ramo): TMS mostra histórico, Torre Ícaro **antecipa**
+- Suporte a decisão real-time vs reativa
+- Justifica investimento na Torre vs só usar relatórios ESL
+- Solicitação explícita do Rubens em conversa
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>torre_analises_preditivas.md</code></em></small>

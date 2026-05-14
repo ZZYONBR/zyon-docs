@@ -1,4 +1,15 @@
 {
   "title": "Infraestrutura",
-  "pages": ["maquinas"]
+  "pages": [
+    "maquinas",
+    "compliance-fici-arquitetura",
+    "datajud-privacidade-partes",
+    "evolution-api-credenciais",
+    "helio-cardoso-ti",
+    "langfuse-observability",
+    "multi-machine-setup",
+    "pg-cron-fixes-2026-05-10",
+    "zyoncs-data-lake-canonico",
+    "zyoncs-rls-pendencia"
+  ]
 }

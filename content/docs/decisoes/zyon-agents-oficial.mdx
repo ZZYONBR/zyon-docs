@@ -1,0 +1,20 @@
+---
+title: "zyon-agents é a linha oficial de agentes Python da Ícaro"
+description: "Decisão de 2026-05-01 — zyon-agents (Python) é a linha oficial; icaro-agents (TypeScript) ficou pausada como zumbi"
+---
+zyon-agents (Python) é a linha oficial de agentes autônomos da Ícaro Express a partir de 2026-05-01. icaro-agents (TypeScript) está em status PAUSED (zumbi confirmado em auditoria comparativa).
+
+**Why:** Auditoria mostrou icaro-agents com 38/129 tools (29%), DB vazio, parado há 6 semanas; zyon-agents com framework completo, Cláudio rodando com WhatsApp + Supabase + 10MB de Excel real conectado, logs ativos até 27/abr. Manter dois stacks competindo gera dispersão.
+
+**How to apply:**
+- Toda iniciativa de novo agente da Ícaro deve nascer em `/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/zyon-agents/`.
+- Cláudio (`claudio/`) é o template de referência: copiar estrutura (rbac, context, intent, router, responder, handlers, agent) para novos agentes.
+- Não criar repos paralelos com nome `zyon-*` para coisas que poderiam ser uma pasta dentro de zyon-agents.
+- **icaro-agents foi ARQUIVADO em 2026-05-08** em `/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/squads/_archive/icaro-agents-frozen-2026-02/` com README explicativo. Não ressuscitar.
+- **zyon-agents é repo Git ativo**: remote `https://github.com/ZZYONBR/zyon-agents.git`, branch `main`. Sem hooks customizados. Commitar normalmente.
+- **Convenção de diretório por agente** (formalizada 2026-05-08): `<agente>/{__init__.py, orchestrator.py, tools/, handlers/, prompts/, tests/, README.md}`. Esqueletos criados para `atlas/`, `hera/`, `hermes/`, `aegis/`, `cosmos/`, `icarus/`, `sofia/` — implementação cronograma S3-S11 do roadmap em `MAPEAMENTO_x_ZZYON_2026.md`.
+- **Scaffolds antigos** (`agents/financeiro.py`, etc., fev/2026) movidos para `agents/_legacy/` — preservados como referência de prompts.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zyon_agents_oficial.md</code></em></small>

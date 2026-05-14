@@ -1,0 +1,78 @@
+---
+title: "torre-lex — frontend ZZYON LEX no ar"
+description: "Frontend Vite + vanilla JS deployado em lex.zzyon.com (Vercel project torre-lex prj_1vupE7aZHgONRubaN2wriQaUl67c) consumindo Supabase zzyon-lex; 6 abas funcionais"
+---
+**Deploy live em 2026-05-07.**
+
+## Identificação
+| Item | Valor |
+|---|---|
+| URL pública | https://lex.zzyon.com (HTTP/2 200, SSL Vercel) |
+| Vercel project ID | `prj_1vupE7aZHgONRubaN2wriQaUl67c` |
+| Vercel team ID | `team_zwRh7y1lx7b3jOln8FEt5Lop` |
+| URL fallback | https://torre-lex.vercel.app |
+| Repo monorepo | `zzyon-platform/torre-lex/` (workspace npm) |
+| Stack | Vite 5 + Vanilla JS ESM (mesmo padrão torre-frota/ra) |
+| Backend Supabase | project `ywhmlvojowtsfetiyebg` (zzyon-lex, sa-east-1) schema `themis` |
+| Cliente Supabase | `src/lex-client.js` (instância dedicada, NÃO usa torre-shared/http.js que aponta para ZYONCS) |
+
+## 6 abas implementadas
+
+| Rota | Renderiza |
+|---|---|
+| `#dashboard` | 6 cards KPI + tabela top 5 processos + top 6 alertas |
+| `#processos` | Lista até 200 com filtros visuais + click para detalhe |
+| `#processos/<cnj>` | Detalhe completo + timeline DataJud (themis.movimentacoes) |
+| `#alertas` | Inbox com mark-as-read (UPDATE direto via PostgREST) |
+| `#licencas` | View vw_licencas_vencendo (≤90 dias) com semáforo de criticidade |
+| `#dossies` | View vw_dossies_pulso com prioridade/prazo |
+| `#consultas` | Lista consultas IA |
+| `#consultas/<id>` | Pareceres consolidado + individuais (markdown→HTML) |
+
+## Auth
+- Magic link via `signInWithOtp` no Supabase
+- Gate JS bloqueando qualquer e-mail que não termine em `@icaroexpress.com`
+- Storage key isolada (`zzy_lex_session`) — NÃO conflita com sessão ZYONCS de outras torres
+
+## Marca
+- Paleta ZZYON v1.0 (#05081C navy-deep, #0A0E27 navy)
+- Acento exclusivo LEX: bronze #8C6B3F
+- Inter font, sem emojis em UI institucional
+- Tagline na login: "Inteligência em órbita — para o jurídico"
+
+## Workspaces zzyon-platform
+- Adicionado `torre-lex` em `package.json` workspaces
+- Scripts root: `npm run dev:lex` e `npm run build:lex`
+- `vite.config.js` desliga PostCSS plugins (`css.postcss.plugins=[]`) para evitar conflito com `~/postcss.config.js` global que pega tailwindcss
+
+## Como atualizar / deploy
+```bash
+cd "/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/zzyon-platform/torre-lex"
+npx vercel deploy --prod --yes
+```
+
+(`.vercel/project.json` já está linkado.)
+
+## Bug conhecido
+- `~/postcss.config.js` global referencia `tailwindcss` que não está instalado
+  no monorepo zzyon-platform. Sintoma: Vite quebra em `Cannot find module 'tailwindcss'`.
+  Workaround: vite.config.js de cada torre define `css.postcss.plugins=[]`.
+
+## Pendências fase 2
+1. Edge function ou API server-side que invoca o orchestrator THEMIS (Python no Mac mini) para Q&A em tempo real
+2. Botão "Nova consulta" na aba `/#consultas` chamando essa API
+3. Filtros (área, filial, risco, status) nas listas
+4. Paginação real (hoje hard-cap em 200 linhas)
+5. Login com Google (provider já configurável no Supabase)
+6. Componente `<zzy-logo>` correto da torre-shared (hoje usa SVG inline simplificado)
+
+**Why:** Rubens pediu explicitamente "deployado em lex.zzyon.com" como fechamento da fase 1. DNS já estava com CNAME genérico Vercel — bastou criar projeto e atrelar domínio.
+
+**How to apply:**
+- URL `lex.zzyon.com` já é endereço institucional — pode mandar para a diretoria/jurídico testarem (login com email @icaroexpress.com).
+- Para popular dados visíveis, importar mais processos via `python -m themis.scripts.import_processos` e cadastrar licenças via SQL ou import equivalente.
+- Qualquer mudança em prompts/agentes Python NÃO precisa de redeploy do frontend (são camadas separadas).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>torre_lex_frontend.md</code></em></small>

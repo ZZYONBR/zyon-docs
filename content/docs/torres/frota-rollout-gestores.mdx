@@ -1,0 +1,51 @@
+---
+title: "Frota · roll-out gestores via magic link"
+description: "4 gestores recebem email+WA com link mágico (sem login Google), assinatura \"ZZYON Frota · Agent IA Roberval"
+---
+**Decisão (2026-05-03, aprovada por Rubens):**
+Roll-out gestores Frota usa magic link (token JWT 7d) ao invés de login Google. 4 gestores cadastrados, cada um com dashboard personalizado em `frota.zzyon.com/m/<token>`.
+
+**Gestores e responsabilidades:**
+| Gestor | Telefone | Área | Volume crítico |
+|---|---|---|---|
+| Luiz Ratti | +55 11 94461-8661 | Frota SP/Whirlpool (12 placas, 30 motoristas) | 95 violações jornada 30d |
+| Cidne | +55 47 99757-1420 | Frota geral + JOI (26 placas) | 6 placas POOL_CRÍTICO sem dono |
+| Duda | +55 47 99757-1049 | RH (102 CLT, jornada Lei 13.103) | 99 violações 30d, 0 férias |
+| Jean Silva | (a confirmar) | Financeiro (multas, IPVA) | folha CSV Sage |
+
+**Padrões obrigatórios:**
+- **Assinatura email/WA:** "ZZYON Frota · Agent IA Roberval"
+- **Cópia oculta:** `rubens@icaroexpress.com` em TODOS os emails
+- **Sem emojis** (padrão enterprise ZZYON)
+- **Paleta brand:** `#3B6EFF` blue, `#1ABC9C` teal, `#122149` navy
+- **Brand manual:** `/Users/rubens2/Desktop/19. COMUNICAÇÃO/zzyon-brand-manual`
+- **Email sender:** Gmail OAuth ICARO (domínio @icaroexpress.com nosso) — Resend descartado
+
+**POOL_CRÍTICO (6 placas com 12+ motoristas/placa):**
+SXP0A70 (15) · MJK6F06 (14) · SXP0A60 (13) · SXV2E90 (13) · SXX0A05 (12) · SXP0A90 (12)
+
+Política sugerida: 1 titular + 2 reservas por placa, máx 3 placas/motorista (Lei do Motorista).
+
+**Distribuição 99 violações jornada 30d:**
+- Luiz (SAO) 95 · Cidne (JOI) 3 · Renato (BHZ) 1
+
+**Cronograma:**
+- Hoje: edge fn frt-magic-auth + /m/<token> + templates + email Luiz/Cidne
+- Amanhã: email Duda/Jean
+- Próx 2 sem: piloto ZYON.CHECK (checklist digital WhatsApp pré-saída)
+
+**ZYON.CHECK (futuro, ~30 dias):** checklist WhatsApp pré-viagem com 8 itens (hodômetro, pneus, faróis, lacre, painel, combustível, avarias, CNH). IA Claude valida fotos. Bloqueia saída se falha. Dependency: WAs dos motoristas (chegam via Duda).
+
+**DETRAN status:**
+- Schema completo: frt_orgaos_runs, frt_orgaos_snapshots, frt_orgaos_diffs, frt_orgaos_config
+- 7 órgãos cadastrados (DETRAN-SC/SP/RJ/MG/PR + DENATRAN + ANTT)
+- Cron 02h NÃO ativado ainda — calibração com 1 placa autorizada por Rubens (2026-05-03)
+- Selectors CSS portal DETRAN/SC precisam ajuste manual na 1ª execução
+
+**Why:** magic link elimina fricção (gestores não têm Google login), mantém segurança (token único + expira), permite mobile-first. Padrão sem emojis e assinatura "Roberval" reforça brand enterprise.
+
+**How to apply:** qualquer comunicação com gestores Frota deve seguir esses padrões. Novos gestores entram via mesma estrutura de magic link.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>frota_rollout_gestores.md</code></em></small>

@@ -1,0 +1,59 @@
+---
+title: "Regra de cálculo SLA Ícaro"
+description: "SLA Ícaro usa deliveryPredictionDate de cada CTe (não dias úteis fixos); ESL já entrega via freightPerformanceReportSynthetic"
+---
+**Definição operacional do SLA Ícaro:**
+
+`SLA Bruto = entregas_no_prazo / total_finalizados`
+
+onde:
+- "no prazo" = `finishedAt <= deliveryPredictionDate` (do CTe)
+- `deliveryPredictionDate` é específico de cada CTe (varia por rota, cliente, contrato)
+- O ESL já fornece pronto via `freightPerformanceReportSynthetic` (group=corporation/payer/...)
+
+`SLA Líquido = no_prazo / (total - justificadas - cancelado)` (briefing)
+
+onde justificadas = ocorrências classificadas pelo Ícaro como `justificado_embarcador|destinatario|externo` em `ocorrencias_catalogo.impacto_sla` (campo nosso, não vem do ESL).
+
+**Meta padrão Ícaro:** 95% (sem dias fixos — depende da previsão de cada CTe).
+
+**🔴 SEGREGAÇÃO VISUAL — 3 clientes (cálculo igual, apresentação separada):**
+
+Os clientes abaixo têm contratos/metas próprias e devem aparecer em **bloco visualmente separado** em qualquer painel/relatório de SLA. **CÁLCULO É O MESMO** (sempre `deliveryPredictionDate` do ESL) — só a apresentação muda.
+
+| Cliente | Tratamento visual |
+|---|---|
+| **WHIRLPOOL** (exceto unidade USP) | Segregado em bloco próprio |
+| **WHIRLPOOL USP** | Entra no SLA Geral (não segregar) |
+| **BUD** (provavelmente BUD COMERCIO 23) | Segregado em bloco próprio |
+| **MLOG ARMAZEM** (consolidado MLOG 06 + 0555) | Segregado em bloco próprio |
+
+**Como aplicar nos painéis:**
+- "SLA Geral" / "SLA por filial" = TODOS clientes EXCETO Whirlpool/BUD/MLOG (Whirlpool USP entra normal)
+- "SLA Clientes Especiais" = bloco separado mostrando Whirlpool, BUD, MLOG individualmente
+- **Cálculo é IDÊNTICO** dos demais (não criar fórmula custom): `finishedAt <= deliveryPredictionDate`
+- Em Cli360 estes 3 aparecem normalmente, com flag `sla_segregado=TRUE` para destacar visualmente
+- Filtros no front: opção "Excluir SLA segregado" ativada por padrão nos painéis Gerência/Diretoria
+- O ESL `freightPerformanceReportSynthetic` group=payer já entrega pronto para esses 3 — só renderizar separado
+
+**Identificação no banco:**
+- WHIRLPOOL: `pagador ILIKE '%WHIRLPOOL%' AND pagador NOT ILIKE '%USP%'`
+- WHIRLPOOL USP: `pagador ILIKE '%WHIRLPOOL%USP%'` (segue SLA padrão)
+- BUD: `pagador ILIKE '%BUD%'`
+- MLOG: pagador canonical = "MLOG ARMAZEM" (consolidação MLOG 06 + MLOG 0555 via cnpj_radical)
+
+**How to apply:**
+- Sempre usar `freightPerformanceReportSynthetic` para SLA bruto rápido
+- Decompor SLA via `operacao_eventos JOIN ocorrencias_catalogo` com FILTER por `impacto_sla` para o SLA Líquido
+- Não criar coluna "dias_uteis_padrao" — não existe; o prazo está no CTe
+- Atrasos detratores: `dias_atraso > 0 AND impacto_sla = 'detrator'`
+- Justificadas: removidas do denominador (cliente/embarcador/externo não conta como falha Ícaro)
+
+**Why:**
+- Usuário confirmou opção (d) sobre métrica SLA — a previsão do CTe já reflete o contrato com cliente, não faz sentido sobrescrever com regra fixa
+- `freightPerformanceReportSynthetic` retorna OTD% pronto + decomposição (1/2/3/+3 dias atraso) por filial/embarcador/cidade
+- Em abr/2026: SLA Bruto Ícaro = 90,8% (vs meta 95%, gap -4,2pp); SP = 97,4% ✅, JOI = 89,1% ⚠️, FLN = 67,2% 🚨
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>sla_calculo_regra.md</code></em></small>

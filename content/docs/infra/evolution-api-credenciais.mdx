@@ -1,0 +1,146 @@
+---
+title: "Evolution API — credenciais e endpoints"
+description: "API key + URLs Evolution WhatsApp Business + plano Tailscale Funnel pra expor pra Edge Functions"
+---
+## Credenciais (auth) — fonte: src/modules/reclameaqui_notificador.py:35-38
+
+- **API Key REAL (do código):** `429683C4C977415CAAFCCE10F7D57E11` — em 10/05/2026 retornou 401 (provavelmente rotacionada)
+- **API Key VÁLIDA (em uso 10/05/2026):** `b65c9c79d15e1214e1b9737e063e6ca6494fd28b6c6a0282`
+
+## 2 instâncias / 2 números (atualizado 10/05/2026)
+
+| Instância | Número | Servidor | Túnel pública | Uso | Status 10/05/2026 |
+|---|---|---|---|---|---|
+| `icaro-claudio` | **+55 47 99757-1207** | Mac mini · Evolution 2.3.5 | Tailscale Funnel `mac-mini-de-rubens.taildc0155.ts.net` | Cliente externo (Cláudio) | ❌ CLOSE desde 08/05 23:13 (401 Meta — sessão expirou) |
+| `icaro-frota` | **+55 48 99177-3785** | Era externo · Cloudflare Tunnel `heating-yearly-infant-bald.trycloudflare.com` | Cloudflare Tunnel TEMPORÁRIO (caiu) | Alertas frota internos (Cidine, Luiz, líderes filiais) | ❌ TÚNEL CAÍDO desde 08/05 10:01 (URL trycloudflare é efêmera) |
+
+**Atividade real `icaro-frota`** (1-8/mai 2026): 185 msgs entregues, 6 desistidas, ~23 msg/dia, destinatários: 6 líderes filiais + Cidine.
+
+**Decisão consolidação 10/05/2026**: criar `icaro-frota` como 2ª instância no MESMO Evolution do Mac mini (em vez de servidor externo com trycloudflare temporário). Tailscale Funnel é persistente — não cai por reinicialização.
+
+## Ações executadas em 10/05/2026 (CONCLUÍDAS)
+
+1. ✅ Instância `icaro-frota` CRIADA no Evolution Mac mini
+2. ✅ Vault `evolution_api_url` atualizado: `trycloudflare.com` → `mac-mini-de-rubens.taildc0155.ts.net` (UPPER e lower secrets unificados)
+3. ✅ **Pareamento humano CONCLUÍDO em 10/05/2026 ~13:35 BRT**:
+   - `icaro-frota` (+55 48 99177-3785): pareada com pairing `75AJF85P`. State=`open`, owner `554891773785@s.whatsapp.net`
+   - `icaro-claudio` (+55 47 99757-1207): pareada com pairing `6MQWAX47`. State=`open`, owner `554797571207@s.whatsapp.net`, profileName=`Ícaro Express`
+4. ✅ Testes reais ponta-a-ponta enviados para Rubens +5547999711598 (status PENDING confirmado em ambas instâncias)
+5. ✅ Fila `frt_wa_outbox`: 6 mensagens em `desistido` (4 Rafael CPQ + 2 Kevin) reenfileiradas para `pendente` — worker Mac mini vai pegar no próximo ciclo
+
+## Recuperação 10/05/2026 19:48 BRT (Mac mini reboot derrubou Evolution)
+
+Após Rubens reiniciar Mac mini no final da manhã 10/05, Evolution NÃO subiu automaticamente (não tinha launchd plist). Refeito completo:
+
+1. ✅ **Stack Docker formal** em `~/zyon-agents/evolution/docker-compose.yml`:
+   - `evoapicloud/evolution-api:v2.3.5` (atendai/evolution-api:v2.2.3 NÃO gera QR — Baileys 2.3000.1015 obsoleto)
+   - PostgreSQL 16-alpine (DATABASE_PROVIDER=postgresql, save_data_instance + new_message + chats + contacts = true)
+   - Redis 7-alpine (CACHE_REDIS_URI=redis://evolution-redis:6379/6)
+   - Volumes: `evolution_instances`, `evolution_store`, `evolution_pg_data`, `evolution_redis_data`
+   - Restart: `unless-stopped`
+2. ✅ **launchd auto-restart pós-boot:** `~/Library/LaunchAgents/com.zzyon.evolution.plist`
+   - RunAtLoad + StartInterval 300s
+   - Loop espera `/opt/homebrew/bin/docker info` antes de `docker compose up -d` (até OrbStack subir)
+3. ✅ **`icaro-claudio` re-pareada** via pairing code `9RYA3N7X` em 10/05 ~20:35 BRT. state=`open`
+4. ✅ **3 WhatsApp travados disparados** após reativação:
+   - Jimmy 5547988146171 — msg_id `3EB04B97CB2128A442E28190F52E6F489344FA3E` PENDING
+   - Kevin 5547997571032 — msg_id `3EB0C5FE2FE1165AED90B2F6052CC5A6F227EB94` PENDING
+   - Rubens 5547999711598 — msg_id `3EB0441E9252D3E7EAE2D19522A14932EA9BCA11` PENDING
+
+### Diferimentos registrados
+
+- **Roberval bridge** (whatsapp-web.js + puppeteer): crash `LifecycleWatcher terminated` por incompatibilidade com Node v25.9.0. Fix correto = instalar Node 20 LTS via nvm e ajustar `~/ROBERVAL/start.sh` para apontar pra esse node. launchd `com.zzyon.roberval.plist` foi descarregado para não ficar em crash loop.
+- **EVOLUTION_API_KEY no vault**: ainda tem o valor antigo `429683C4C977415CAAFCCE10F7D57E11` — atualizar para `b65c9c79d15e1214e1b9737e063e6ca6494fd28b6c6a0282` antes de qualquer edge function nova consumir.
+
+## Estado final secrets (vault)
+
+| Secret name | Valor | Uso |
+|---|---|---|
+| `evolution_api_url` | `https://mac-mini-de-rubens.taildc0155.ts.net` | Edge fns frt-* (icaro-frota) |
+| `evolution_api_key` | `b65c9c79d15e1214e1b9737e063e6ca6494fd28b6c6a0282` | API key VÁLIDA |
+| `EVOLUTION_BASE_URL` | `https://mac-mini-de-rubens.taildc0155.ts.net` | Edge fns Cláudio (icaro-claudio) |
+| `EVOLUTION_INSTANCE` | `icaro-claudio` | Instance default Cláudio |
+| `EVOLUTION_API_KEY` | `429683C4C977415CAAFCCE10F7D57E11` | ⚠️ Antiga, retornando 401. Atualizar para nova key. |
+
+## Como conectar (passo-a-passo Rubens)
+
+### `icaro-frota` (+55 48 99177-3785) — opção mais rápida: PAIRING CODE
+
+1. Abre WhatsApp no celular do número
+2. Configurações → **Aparelhos conectados** → **Conectar um aparelho**
+3. Toca em **Conectar com número de telefone** (canto direito)
+4. Digita: **`T6BR83W7`** (8 caracteres, hífen automático)
+5. Pronto
+
+> Pairing code **expira em alguns minutos**. Se demorar, re-chamar `/instance/connect/icaro-frota` que gera novo.
+
+### `icaro-claudio` (+55 47 99757-1207) — usar QR
+
+1. Abre WhatsApp Business no celular do número
+2. Configurações → Aparelhos conectados → Conectar um aparelho
+3. Escaneia o QR em `/tmp/whatsapp-qrs/icaro-claudio-qr.png`
+   (ou abrir manager `http://100.65.23.99:8080/manager` direto na tela do celular)
+
+## Endpoints (rede local)
+
+- Local interna: `http://localhost:8080` (NÃO 8000!)
+- Manager UI: `http://localhost:8080/manager`
+- Tailnet (Tailscale): URL `.ts.net` interna na porta 8080
+- **Pública (ATIVA via Tailscale Funnel):** `https://mac-mini-de-rubens.taildc0155.ts.net`
+  - Comando: `tailscale funnel --bg 8080` no Mac mini (Funnel já habilitado no tailnet `taildc0155`)
+  - Cuidado: depende do Mac mini estar ligado e Colima/Docker rodando. Se Mac reiniciar precisa: `colima start && docker start evolution-api`
+
+## Header padrão pra requisições
+
+```
+apikey: 429683C4C977415CAAFCCE10F7D57E11
+Content-Type: application/json
+```
+
+## Teste de saúde (rodar no Mac mini)
+
+```bash
+curl http://localhost:8080/instance/fetchInstances \
+  -H "apikey: 429683C4C977415CAAFCCE10F7D57E11"
+```
+
+## Integração existente
+
+Já usado em `/Users/rubens/ROBERVAL/src/modules/reclameaqui_notificador.py` para alertas de RA. WhatsApp principal ainda usa wwebjs em `whatsapp/bridge.js` (legado). Sem docker-compose visível no repo principal — Evolution roda em outro processo no Mac mini.
+
+## Endpoints Evolution usados
+
+- `POST /message/sendText/{instance}` — enviar texto simples
+- `POST /message/sendButtons/{instance}` — botões interativos (até 3 botões, 20 chars)
+- `POST /message/sendList/{instance}` — menu lista (até 10 opções)
+- `POST /webhook/set/{instance}` — configurar URL pra receber callbacks (clique em botão, msg recebida)
+
+## Webhook reverso
+
+Quando responsável clica botão WhatsApp → Evolution dispara `POST` pra:
+- (a configurar) `https://hbrvoairynwsliyxxgsg.supabase.co/functions/v1/whatsapp-webhook-receiver`
+
+## Como armazenar no Supabase
+
+```sql
+SELECT vault.create_secret('b65c9c79d15e1214e1b9737e063e6ca6494fd28b6c6a0282', 'EVOLUTION_API_KEY');
+-- recuperar:
+SELECT fn_get_secret('EVOLUTION_API_KEY');
+```
+
+## Contatos pra escalação RA (vide tabela agentes_entrega_contatos)
+
+| Filial | Líder | WhatsApp |
+|---|---|---|
+| 1.01 JOI | Jimmy | +5547988146171 |
+| 1.02 SP | Gabriel | +5511960930058 |
+| 1.03 FLN | Jimmy | +5547988146171 |
+| 1.04 PR | Emerson | +5541988791939 |
+| 1.05 RJ | Davi | +5521980452711 |
+| 1.07 CPQ | Rafael | +5511981490167 |
+
+**Escalação 1h sem resposta:** Rubens +5547999711598
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>evolution_api_credenciais.md</code></em></small>

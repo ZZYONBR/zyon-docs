@@ -1,0 +1,42 @@
+---
+title: "ÍCARUS — Sprint 1 anchor schema (2026-05-10)"
+description: "Esqueleto Python + schema âncora icarus.* aplicado em ZYONCS. Tools (triagem_ra, nps_cliente, escalar_diretoria, radar_churn) começam em Sprint 9. NÃO confundir com tools entregues — ainda não existem."
+---
+# ÍCARUS — Status real (2026-05-10)
+
+## Onde estamos de fato
+
+- **Código**: apenas esqueleto. [zyon-agents/icarus/](Users/rubens2/Desktop/15.%20IA%20AUTOMA%C3%87%C3%83O/zyon-agents/icarus) tem só:
+  - `__init__.py`, `orchestrator.py` (herda `AgentCore` mas sem ciclo real)
+  - `tools/__init__.py` vazio · `handlers/__init__.py` vazio · `tests/__init__.py` vazio
+  - `README.md` original (Sprint 9 prevê tools).
+- **Schema Supabase ZYONCS**: aplicado 10/05/2026 via branch dev → merge para main. Migration em `zyon-agents/icarus/migrations/001_icarus_anchor.sql`. Tabelas-âncora apenas, **sem RLS dedicada ainda** (segue política pragmática descrita no advisory RLS).
+
+## Tabelas criadas (apenas âncoras)
+
+| Tabela | Propósito |
+|---|---|
+| `icarus.nps_responses` | Respostas NPS por grupo econômico + categoria (promotor/neutro/detrator) gerada |
+| `icarus.ra_triagens` | Triagem futura RA com classificação LLM + custo (vazia até S9) |
+| `icarus.escalacoes` | Escalações cross-canal RA/SAC/Inbox (carga manual ou tool S9) |
+| `icarus.cs_consolidado_snapshot` | Snapshot mensal 360 health score por grupo |
+| `icarus.vw_health_corrente` (view) | Último health por grupo — consumida por HERMES.churn_risk |
+
+## Erro de memória anterior (corrigido aqui)
+
+Versão de 2026-05-09 desta memória descrevia tools L1/L2, repo.py, models.py Pydantic, 29 testes, smoke Wallace #247404379. **Nada disso existe no disco** — provável alucinação ou sessão paralela cujo trabalho não foi persistido. Não considerar essa narrativa.
+
+## Próximo passo real
+
+Sprint 9 (set/2026 conforme roadmap) implementa as 4 tools previstas no README:
+`triagem_ra`, `nps_cliente`, `relatorio_performance_cliente`, `escalar_diretoria`.
+
+## How to apply
+
+- Schema icarus.* já está disponível em ZYONCS para outros agentes referenciarem (HERMES.churn_risk pode `JOIN icarus.vw_health_corrente`).
+- Não escrever em icarus.* sem RLS revisada antes (advisory pendente — vide nota RLS).
+- `grupo_economico` é a chave de negócio em todo o schema (alinhado a hermes.clientes).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>icarus_sprint1.md</code></em></small>

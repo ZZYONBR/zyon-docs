@@ -1,0 +1,48 @@
+---
+title: "ZZYON arquitetura canônica — 15 operacionais + camada Sahaba (governança institucional)"
+description: "Arquitetura formal do ecossistema ZZYON. Camada operacional grega (6 orquestradores + 7 verticais + 2 interfaces, sob Saúde ZYON) + 4ª camada Sahaba (governança institucional, MOHAMED+ABOOBAKAR). Esqueletos MOHAMED e ABOOBAKAR criados 09/05/2026."
+---
+Arquitetura canônica do ecossistema ZZYON formalizada em 2026-05-08 no documento `00. GESTÃO/Mapeamento 2026/MAPEAMENTO_x_ZZYON_2026.md` + `REDISTRIBUICAO_AGENTES.md`. **Atualizada em 2026-05-09** (quatro agentes nasceram no mesmo dia): adicionados **ATENA** (12º — Orquestrador de Operações e Processos), **HEFESTO** (13º — Vertical de Frota Operacional), **METIS** (14º — Vertical de Qualidade e Excelência Operacional) e **DAEDALUS** (15º — Vertical de Sustentação Técnica / TI).
+
+**15 agentes em 3 camadas, sob Saúde ZYON (meta-orquestrador, live):**
+
+Orquestradores (6):
+1. **ATENA** [a construir Py — NOVO 09/05] — Operações e Processos (gerente T2 IA), materializa o R1 do Luan/Loyalty (zyon-agents/atena/)
+2. **TORRE** [LIVE TS] — Observatório operacional end-to-end (zzyon-platform/torres/*) — cobre 156 das 241 atividades do mapa; ATENA opera SOBRE TORRE
+3. **ATLAS** [a construir Py] — Controladoria, Financeiro, Conciliação, Rentabilidade, Fechamento (zyon-agents/atlas/)
+4. **HERA** [a construir Py] — RH, Folha, Organograma (zyon-agents/hera/)
+5. **HERMES** [scaffold→expandir Py] — Comercial, CRM, Propostas, Mercado (zyon-agents/hermes/)
+6. **THEMIS/LEX** [LEX live; THEMIS expandir] — Jurídico, Compliance ANTT/ANVISA/IBAMA, Contratos (zyon-agents/themis/ + zzyon-platform/torre-lex/)
+
+Verticais (7):
+7. **AEGIS** — Compliance Lei 13.103 (jornada motorista, certificações)
+8. **COSMOS** — S&OP (forecast, capacity)
+9. **ÍCARUS** — CS Premium (consolidador SAC+RA+Inbox+NPS)
+10. **SOFIA** — Knowledge RAG (mapeamento, SOPs, contratos)
+11. **HEFESTO** [a construir Py — NOVO 09/05] — Frota Operacional (TCO, manutenção, renovação, performance motoristas, alocação por rota, POOL_CRÍTICO); complementa ROBERVAL — `zyon-agents/hefesto/`
+12. **METIS** [a construir Py — NOVO 09/05] — Qualidade e Excelência Operacional (POPs, BPMN, RACI, NC, CAPA, ISO 9001, satisfação); materializa cargo Gestor de Qualidade (R1 §3 / Projeto Excelência v4); titular humano Thais Heiler dez/2026 — `zyon-agents/metis/`
+13. **DAEDALUS** [a construir Py — NOVO 09/05] — Sustentação Técnica transversal (infra Mac mini/Supabase/Evolution/Langfuse/Tailscale, integrações ESL/Ahgora/Autotrac/Vault, backups/DR, segurança/LGPD, gestão de acessos RBAC/SSO/magic links, catálogo etl_sources, sustentação técnica dos demais 14 agentes); espelha cargo Gerente de TI Hélio Pirath — `zyon-agents/daedalus/`
+
+Interfaces (2 — live):
+14. **CLÁUDIO** — WhatsApp externo (zyon-agents/claudio/)
+15. **ROBERVAL** — Frota Compliance documental (zzyon-platform/torre-frota/ + zyon-agents/roberval/)
+
+**4ª camada — Sahaba (governança institucional, ACIMA dos 15 operacionais gregos):**
+- **MOHAMED** [esqueleto criado 09/05/2026 — Py] — agente espelho do CEO Rubens; princípio canônico "PREPARA, NUNCA DECIDE" (toda saída é cenários A/B/C com trade-offs); 10 tools (5 L1 read-only: briefing_diario/visao_executiva_semanal/prep_diretoria/prep_conselho/monitor_relacionamentos_clave + 3 L2 com revisão Rubens + 2 L3 jamais autônomo); consome read-only de todos os 15 operacionais + Saúde ZYON + ABOOBAKAR; material confidencial em `_classified/` gitignored (M&A, FINEP R$8,96M, redlines críticos, compensação Diretoria, POS-001/Plano B); cadência sagrada (briefing 07h diário, prep Diretoria 24h antes sextas, prep Conselho 7d antes trimestre); implementação Sprint 8+ (mín. 30/jun/2026) depois de ATLAS v1 (S4) + ATENA v1 (S4) + HERMES v1 (S7) — `zyon-agents/mohamed/`
+- **ABOOBAKAR** [esqueleto criado 09/05/2026 noite — Py] — Secretaria Executiva do Conselho de Administração (agente coletivo); opera SOBRE repositório classificado `icaro-conselho/`; 4 princípios inegociáveis (NÃO vota, NÃO antecipa decisão, preserva rastro auditável, preserva sigilo interno e externo); 8 tools (4 L1 + 4 L2); implementação efetiva S10+ depois de MOHAMED v1 — `zyon-agents/aboobakar/`
+
+**Why:** o plano fev/2026 (14 MCP TS em icaro-agents) nunca saiu do papel — todos os 14 servers eram diretórios vazios. Stack pivotou para Python (zyon-agents) + TS (zzyon-platform). Os codinomes ATLAS/HERA/HERMES/THEMIS continuam, mas reimplementados em Python como orquestradores. Verticais adicionadas para problemas profundos que não cabiam nos orquestradores. **Em 09/05/2026 quatro agentes nasceram no mesmo dia** (Fábrica de Gestores IA): ATENA (manhã — cargo Gerente Operações T2 / POS-001 / 3 cenários Luan/Loyalty), HEFESTO (tarde — frota operacional além do compliance documental de ROBERVAL; donos Cidne/Luiz Ratti/Donny/Jean), METIS (tarde — cargo Gestor de Qualidade / Projeto Excelência v4 / Plano B Thais Heiler dez/2026 / ISO 9001 audit-ready) e DAEDALUS (noite — cargo Gerente de TI / Hélio Pirath; fecha o conjunto "espelho de cargo" cobrindo a infra que os 14 outros agentes consomem; formaliza 5 pendências bloqueadoras Sprint 1 — SUPABASE_KEY, PM2 startup, push docs Mapeamento, OrbStack, git-crypt icaro-conselho). Disjunto de SOFIA (RAG conhecimento ≠ infra técnica), ROBERVAL (frota documental) e AEGIS (jornada motorista). Detalhes: memórias `atena_agente_gerente_operacoes.md`, `hefesto_agente_frota_operacional.md`, `metis_agente_qualidade.md`, `daedalus_agente_ti.md`.
+
+**How to apply:**
+- Antes de propor novo agente: verificar se já cabe em um dos 15 operacionais — ou, para questões executivas/de governança institucional, em MOHAMED (CEO) ou ABOOBAKAR (Conselho) na camada Sahaba.
+- **Sahaba × operacional**: MOHAMED e ABOOBAKAR **NÃO comandam** os 15 operacionais — apenas consultam read-only e sintetizam para humanos decidirem (Rubens decide para MOHAMED; Conselho delibera para ABOOBAKAR). Quem comanda os agentes operacionais depois da decisão é Rubens (humano), nunca MOHAMED.
+- Antes de mexer em `squads/icaro-agents/`: NÃO MEXER — está arquivado em `squads/_archive/icaro-agents-frozen-2026-02/`.
+- Skills Anthropic existentes ligam-se aos agentes (mapeamento explícito em REDISTRIBUICAO_AGENTES.md §5).
+- Guardrails L1/L2/L3 documentados — cada agente declara o nível por tool.
+- TORRE = TS, demais Py — não duplicar lógica entre stacks.
+- Roadmap de 12 semanas (S1-S12) começa 12/05/2026 com Sprint 1 = limpeza técnica (icaro-agents arquivado, CLAUDE.md reescrito, SUPABASE_KEY).
+- **Não confundir papéis adjacentes**: ROBERVAL = compliance documental da frota (DETRAN/IPVA/AIT/CRLV); HEFESTO = operação da frota (TCO/manutenção/planejamento). METIS DESENHA SOPs; SOFIA INDEXA em RAG; ATENA COBRA aderência aos SOPs publicados.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zzyon_arquitetura_11_agentes.md</code></em></small>

@@ -1,0 +1,79 @@
+---
+title: "Fábrica de Gestores IA — padrão de criação de novos agentes ZZYON"
+description: "Padrão formal definido em 09/05/2026 para criar agentes IA que materializam cargos gerenciais humanos. 1 chat por agente, prompt mestre + briefing específico, codinomes gregos."
+---
+Padrão formal de criação de novos agentes ZZYON estabelecido em 2026-05-09 a pedido de Rubens, depois de criar ATENA (gerente operações IA do R1 Luan/Loyalty). Documento operacional em `00. GESTÃO/Mapeamento 2026/FABRICA_GESTORES_IA.md`.
+
+**Regra fundamental**: 1 chat Claude Code por agente — não misturar contextos. Comunicação entre agentes acontece via Git + memórias + Supabase event bus, não via "juntar chats".
+
+**Estrutura do método** (FABRICA_GESTORES_IA.md):
+- Seção 1: prompt mestre que se cola em qualquer chat (lê memórias, lê CLAUDE.md, lê plano do mapeamento, lê README do ATENA como padrão de qualidade, aplica 7 princípios não-negociáveis, guardrails L1/L2/L3, exige README de 12 seções)
+- Seção 2: 8 briefings específicos prontos — Onda 1 operacional (ATLAS, HERA, HEFESTO, DAEDALUS, METIS, COSMOS) + Onda 2 governança (ZEUS=CEO, MOIRAS=Conselho)
+- Seção 3: checklist pós-criação (12 itens)
+- Seção 4: ordem de prioridade recomendada
+- Seção 5: regra de ouro (1 chat = 1 agente)
+- Seção 6: cadência (≤2 agentes/dia, auditoria a cada 3)
+
+**Codinomes gregos formalizados:**
+Onda 1 (operacional, S1-S11):
+- HEFESTO — Frota operacional (forja, artesania mecânica) — complementa ROBERVAL (documental)
+- DAEDALUS — TI (mestre artesão, construtor) — Hélio
+- METIS — Qualidade/ISO 9001 (prudência, conselho — mãe de Atena) — Thais futura
+
+Onda 2 (governança institucional, S8+) — usa nomes do Profeta Muhammad e seus companheiros (Sahaba):
+- **MOHAMED** — CEO/Diretor Executivo (Profeta Muhammad, mensageiro e líder da ummah; visão estratégica, arbítrio sábio) — Rubens
+- **ABOOBAKAR** — Conselho de Administração (Abu Bakr as-Siddiq, primeiro califa, sucessão sábia, custódia plurianual, "primeiro entre iguais" — shura colegiada) — colegiado
+
+Onda 3 (sob demanda):
+- ASCLEPIUS — Sinistros e seguros (cura)
+- APOLO — Dados/BI executivo (luz, conhecimento)
+- ARES — Segurança patrimonial e carga
+
+**Padrão arquitetural híbrido (formalizado 2026-05-09)**:
+- **Camada operacional** (12 agentes existentes): panteão grego — ATENA, ATLAS, HERA, HERMES, THEMIS/LEX, TORRE, AEGIS, COSMOS, ÍCARUS, SOFIA, CLÁUDIO, ROBERVAL
+- **Camada de governança institucional** (CEO + Conselho + futuros executivos): nomes do Profeta Muhammad e seus companheiros (Sahaba) — MOHAMED, ABOOBAKAR, e futuros (Omar, Uthman, Ali, etc., conforme Rubens decidir)
+
+**Regras especiais MOHAMED e ABOOBAKAR** (não se aplicam aos demais):
+- "Preparar, não decidir" — MOHAMED estrutura cenários, ABOOBAKAR organiza ata; humano decide
+- Sigilo classificado — M&A, captação, atas de Conselho NÃO entram em MEMORY.md normal; vão para `_classified/` ou repositório separado (`icaro-conselho` para ABOOBAKAR)
+- Cadência humana, não de máquina — MOHAMED mensal, ABOOBAKAR trimestral; mais frequência vicia gestão em IA
+- Implementação só DEPOIS da Onda 1 ter pelo menos ATLAS+ATENA+HERMES com tools de leitura — caso contrário viram teatro
+- **Sensibilidade religiosa**: nomes da camada de governança vinculados ao Profeta ﷺ e companheiros têm peso simbólico. Em material formal lido por terceiros (auditor, FINEP, conselheiro externo), pode gerar reações distintas. Decisão de Rubens — registrada para informar futuras sessões. Codinomes técnicos (`agents/mohamed/`, `agents/aboobakar/`) ficam SEM o marcador "ﷺ"; em prosa institucional pode ser adicionado.
+
+**Ordem de prioridade recomendada** (para Rubens criar nos próximos chats):
+
+Onda 1 (S1-S11, operacional):
+1. ATLAS (Controller) — destrava 4 dos 7 gaps críticos
+2. HERA (RH) — Aline pronta para sponsorar
+3. DAEDALUS (TI) — destrava infraestrutura
+4. HEFESTO (Frota op.) — Cidne é dona
+5. METIS (Qualidade) — destrava Projeto Excelência v4
+6. COSMOS (S&OP) — depende dos demais
+
+Onda 2 (S8+ e S10+, governança):
+7. MOHAMED (CEO) — sintetizador estratégico de Rubens; depende de ATLAS+ATENA+HERMES com tools de leitura
+8. ABOOBAKAR (Conselho) — secretaria executiva colegiada; depende de MOHAMED
+
+Onda 3 (sob demanda):
+9. ASCLEPIUS, 10. APOLO, 11. ARES
+
+**Why:** Rubens vai criar ~6 agentes nos próximos dias, cada um em chat separado. Sem padrão, cada chat reinventa estrutura, codinome, KPIs, guardrails. Com padrão, todos saem espelhando ATENA (que foi referência de qualidade). Reduz risco de drift arquitetural e custo de auditoria de integração.
+
+**How to apply:**
+- Quando Rubens disser "vou criar gestor X" ou abrir novo chat para criar agente, indicar `00. GESTÃO/Mapeamento 2026/FABRICA_GESTORES_IA.md` como referência.
+- Cada chat de criação termina com checklist preenchido + hash do commit.
+- A cada 3 agentes criados, Rubens volta para auditoria de integração cruzada.
+- Implementação real (Sprint 1+) só começa depois dos 6 esqueletos prontos.
+- Atualizar este padrão sempre que um novo cargo for identificado ou metodologia evoluir.
+- Codinomes ficam reservados conforme criados — não duplicar nem usar nome de agente já existente.
+
+**Preferência explícita de Rubens (registrada 09/05/2026):**
+- Ao preparar prompts/briefings/material para Rubens repassar a outros chats ou colaboradores, **SEMPRE entregar em um único arquivo, organizado por agente/seção**, pronto para copiar-e-colar.
+- Não fragmentar em múltiplos arquivos por agente (ex.: `_prompts_por_agente/<agente>.md`) — Rubens prefere navegação dentro de um único documento (índice no topo + seções marcadas com `---`).
+- Sempre que houver volume material (ex.: 12 prompts, 8 briefings), gerar **2 versões em paralelo**: `.md` (rápido para copiar em editor) + `.docx` brand-compliant ZZYON (visual limpo, capa, índice tabular).
+- Padrão consolidado em `PROMPTS_PARA_CHATS_NOVOS.md/.docx` (commit `dbfc885` no repo Mapeamento 2026) — usar como referência de formato e qualidade.
+- Aplicar essa regra para qualquer pacote futuro: roteiros de conversa, packs de onboarding, manuais operacionais, listas de prompts.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>fabrica_gestores_ia_padrao.md</code></em></small>

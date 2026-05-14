@@ -1,0 +1,142 @@
+---
+title: "Inventário ZZYON"
+description: "Mapa completo do ecossistema — torres, agentes, data layer, infraestrutura, repos, domínios e veículos jurídicos"
+---
+
+Mapa estrutural de tudo que existe hoje no ecossistema **ZZYON** da Ícaro Express Logistics. Atualizado em 10/05/2026.
+
+## 1 · Frontends — Torres (14 apps)
+
+Monorepo [`zzyon-platform`](https://github.com/ZZYONBR/zzyon-platform). Deploy Vercel por torre.
+
+| Torre | Domínio | Função |
+|---|---|---|
+| **torre-platform** | app.zzyon.com/platform | Saúde Dados · Orquestração · Agents · Event Bus · Governança |
+| **torre-briefing** | briefing.zzyon.com | Briefing executivo (hero stats, hotspots, reincidentes) |
+| **torre-cargas** | cargas.zzyon.com | Filiais · Dash Filial · WHP · Baixas · Rotas SP |
+| **torre-ra** | ra.zzyon.com | Reclame Aqui · Tratativa · Analytics · Shield |
+| **torre-comercial** | comercial.zzyon.com | Cli360 · Churn · NPS · Volume D+7 · Preditivo |
+| **torre-controladoria** | controladoria.zzyon.com | DRE Live · Margem · Pareto · Leak · Auditor |
+| **torre-frota** | frota.zzyon.com | ZYON.CHECK · checklist WhatsApp + auditoria DETRAN |
+| **torre-cliente** | cliente.zzyon.com | Portal self-service para Whirlpool/MLOG/Pichau |
+| **torre-inbox** | inbox.zzyon.com | Emails IA · Mailboxes · KB |
+| **torre-lex** | lex.zzyon.com | Plataforma jurídica AI-native (THEMIS) |
+| **torre-nextday** | nextday.zzyon.com | Fechamento NextDay W-HOUSE Whirlpool/MLOG |
+| **torre-binario** | binario.zzyon.com | WMS espelho operação 3PL Ícaro × Binário JOI |
+| **torre-ceo** | (deploy pendente) | CEO View executiva mobile-first |
+| **torre-shared** | (pacote) | Web components + helpers + metas (METAS canônicas) |
+
+## 2 · Agentes Python — `zyon-agents` (16 + governança + conselho)
+
+### Orquestradores (6)
+
+| Agente | Papel | Dono humano |
+|---|---|---|
+| ATENA | Operações T2 | Luan Loyalty |
+| ATLAS | Controladoria/Financeiro | Jean Silva |
+| HERA | RH/Folha/Organograma | Aline Cavalcanti |
+| HERMES | Comercial/CRM | Jimmy Cristy |
+| THEMIS | Jurídico/Compliance | Caroline Souza (regulatório) |
+| TORRE | Operações nativa | — |
+
+### Verticais (8)
+
+AEGIS · Lei 13.103 — jornada motorista
+COSMOS · S&OP — forecast volume / capacity
+ÍCARUS · CS Premium — SAC+RA+Inbox+NPS
+SOFIA · Knowledge RAG — mapeamento, SOPs, contratos
+HEFESTO · Frota Operacional — TCO, manutenção
+METIS · Qualidade — POPs, BPMN, ISO 9001
+DAEDALUS · TI/sustentação — Hélio Pirath
+DEMÉTER · Compras/Suprimentos
+
+### Interfaces (2 — live)
+
+- **CLÁUDIO** · WhatsApp externo
+- **ROBERVAL** · Frota Compliance (DETRAN, IPVA, AIT)
+
+### Governança Sahaba (2 — pessoais Rubens)
+
+- **MOHAMED** · Espelho do CEO
+- **ABOOBAKAR** · Secretaria Executiva do Conselho
+
+### Conselho Virtual (5 — arquetípicos)
+
+MUSK · BUFFETT · GATES · MITTAL · JOBS
+
+### Meta-orquestrador
+
+**Saúde ZYON** · supervisão e KPIs cross-agent
+
+## 3 · Data Layer — Supabase (9 projetos)
+
+| Projeto | ID | Região | Papel |
+|---|---|---|---|
+| **ZYONCS** | `hbrvoairynwsliyxxgsg` | us-east-2 | **Data lake canônico** · 200+ tabelas · todos os agentes consomem |
+| **ZYON.RH** | `hzvcimkejrtcagbvusxt` | us-east-1 | RH isolado (LGPD) · só HERA escreve |
+| **zzyon-lex** | `ywhmlvojowtsfetiyebg` | sa-east-1 | Jurídico isolado · só THEMIS escreve |
+| **icaro-bpm** | `ryughyacjbezsmxquwqd` | us-east-2 | BPM/processos (METIS futuro) |
+| **zzyon-saas-control** | `cvjrgbuvnnkasdrraczn` | sa-east-1 | Controle multi-tenant ZZYON SaaS |
+| **icaro-gestao-2026** | `ahbkkizuzevyemlbvulf` | us-east-2 | Torre Management 2026 |
+| **icaro-lastmile** | `adbjwgbmwgqeudlpaiht` | us-east-1 | Last-mile dedicado |
+| **ZYON.TRNS** | `eonmrazwqitjeouvnotn` | us-east-1 | Translation/i18n |
+| **icaro-site-public** | `qzuyaqykiynwjnmlkgpq` | us-east-1 | Site público |
+
+## 4 · Repositórios GitHub (`ZZYONBR`)
+
+| Repo | Visibilidade | Função |
+|---|---|---|
+| **zyon-agents** | privado | Agentes Python da Ícaro Express |
+| **zzyon-platform** | privado | Monorepo das torres |
+| **zyon-saude** | privado | Observabilidade unificada |
+| **zyon-docs** | público | Esta documentação |
+| **torre-management** | público | Gestão executiva |
+
+## 5 · Squads · subprojetos isolados (19 pastas)
+
+Operacionais: **binario-wms** · **gestao-parceiros** · **icaro-bid-engine** · **icaro-lastmile** · **intelbras-estudo** · **advisory-board**
+Marketing/Brand: brand-squad · copy-squad · design-squad · storytelling · landing-agregados · traffic-masters · hormozi-squad
+Outros: c-level-squad · claude-code-mastery · cybersecurity · data-squad · movement
+
+## 6 · Diretórios standalone
+
+| Dir | Função |
+|---|---|
+| **icaro-conselho** | Repo classificado do Conselho (atas, dossiês) — git-crypt preparado |
+| **icaro-website** | Site institucional icaroexpress.com |
+| **icaro-agents** | TS legado · ARQUIVADO |
+| **evolution-api** | WhatsApp Business gateway (Mac mini Docker) |
+| **zyon-tac** | TAC (Termo de Ajuste de Conduta) — área jurídica |
+| **deutsche-cargo-brand** | Brand assets Deutsche |
+| **Vault** | Secrets físicos (cert A1, chaves) |
+| **SKILLS** | Skills Claude Code reutilizáveis |
+
+## 7 · Infraestrutura física
+
+| Máquina | IP Tailscale | Papel |
+|---|---|---|
+| **MacBook Pro** (rubens2) | 100.91.78.47 | Dev local |
+| **Mac mini** (rubens) | 100.65.23.99 | Produção 24/7 |
+
+**Serviços Mac mini**: Evolution API :8080 · Supabase self-hosted :8100 · Langfuse :3000
+
+## 8 · Domínios públicos
+
+`app.zzyon.com` · `briefing.zzyon.com` · `cargas.zzyon.com` · `ra.zzyon.com` · `comercial.zzyon.com` · `controladoria.zzyon.com` · `frota.zzyon.com` · `cliente.zzyon.com` · `inbox.zzyon.com` · `lex.zzyon.com` · `nextday.zzyon.com` · `binario.zzyon.com` · `docs.zzyon.com` (esta doc) · `icaroexpress.com` (institucional)
+
+## 9 · Veículos jurídicos
+
+- **Ícaro Express Logistics Ltda** · operação principal (11 filiais · CNPJ 06.225.952/000X)
+- **Deutsche Cargo do Brasil** · empresa do grupo (intermediária aérea)
+- **G3 Serviços de Carga** · veículo escolhido para **ZZYON do Brasil**
+
+## Totais
+
+| Categoria | Quantidade |
+|---|---|
+| Torres frontend | 14 |
+| Agentes ZZYON | 16 + 2 Sahaba + 5 Conselho |
+| Projetos Supabase | 9 |
+| Repos GitHub | 5 |
+| Squads | 19 |
+| Domínios públicos | 14 subdomínios |

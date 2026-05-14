@@ -1,0 +1,74 @@
+---
+title: "Fontes canônicas Torre (SSoT) — atualizado 10/05/2026"
+description: "Para cada entidade da Torre, qual é a Single Source of Truth + onde ESL tem nativo + tabela de catálogo etl_sources. Schema da view + estado real verificado em 10/05/2026."
+---
+Catálogo vivo em `etl_sources` (21 fontes) + view `vw_etl_freshness` + painel "Saúde Dados" em torre-platform.
+
+## Schema canônico de `vw_etl_freshness` (verificado 10/05/2026)
+
+Colunas reais: `source_name` (text), `entidade` (text), `origem` (text), `tabela_destino` (text), `fonte_canonica` (bool), `is_critica` (bool), `freq_esperada_min` (int), `cron_jobname` (text), `edge_function` (text), `ultima_atualizacao` (timestamptz), `minutos_atraso` (numeric), `status_freshness` (text — `OK`/`ATENCAO`/`CRITICO`/`SEM_DADOS`/`N/A`), `observacoes` (text).
+
+⚠️ Não confundir com nomes errados que estavam no código antes do fix de 10/05: NÃO existem `minutos_desde_ultima`, `fonte`, `tipo`, `source_type`, `last_seen`. Use sempre os nomes acima.
+
+## Mapping entidade → fonte canônica
+
+| Entidade | Fonte canônica | Tabela | Sync | Observação |
+|---|---|---|---|---|
+| **Frete (volume/CTes)** | ESL GraphQL | `cs_entregas_historicas` (fonte=FAT_JC) | 15min | `fn_ingest_faturamento_jc` corrigida pra gravar agente_entrega — bom pra contagem, NÃO pra receita |
+| **Receita real** ⭐ | XLSX FAT-JC manual | **`mgmt_fat_jc_staging.total_a_receber`** | diário (1440min) | **DECISÃO CANÔNICA Rubens 10/05/2026**: fonte ÚNICA de R$ Ícaro. cs_entregas_historicas.valor_frete tem ~12% cobertura — NÃO usar. Hoje cobre só dez-fev/2026 + Whirlpool/MLOG/BUD/Kulzer. Memória: `fat_jc_fonte_canonica_receita.md`. Check `fat_jc_freshness` ativo |
+| **Faturamento (NF transportada)** | ESL GraphQL | `cs_entregas_historicas.valor_nf` | 60min | mercadoria que Ícaro transportou (não confundir com receita Ícaro) |
+| **Margem** | FAT-JC `total_a_receber - cache_custo_total` | `mgmt_fat_jc_staging` | diário | Mesma decisão canônica — não usar mais cs_entregas_historicas.margin_* |
+| **Ocorrência** | ESL REST `/api/invoice_occurrences` | `operacao_eventos` | 15min cron | Throughput insuficiente — gap de ~80k em fila (per_page=20 baixo demais) |
+| **Tracking AWB** | ESL REST `/consolidation/aerials.json` | `cs_tracking_awbs` | 60min | Cobertura ~10% dos CTes |
+| **Cliente / Pagador** | ESL `Customer` + `Person` | `cs_entregas_historicas.pagador` (denormalizado) | mesmo do frete | Não temos tabela `clientes` separada |
+| **Vendedor** | ESL `Person.seller` (PersonType) + `Customer.sellerCommissions` | (a criar) | (a sincronizar) | **NÃO tem campo local — usar ESL nativo** |
+| **Atendente operacional** | 3 candidatos ESL: `Customer.integrationUser`, `Person.userAgentId`, `FreightBase.userId` | hoje: `cs_atendente_clientes` (heurístico) | manual | Investigar qual é o "atendente real" |
+| **Filial** | `filiais` (canônica 12 unidades) | `filiais` | manual | 7 ativas + 4 desenvolvimento + Deutsche grupo |
+| **Filial emissora frete** | ESL `Corporation` / FAT-JC | `mgmt_fat_jc_staging.filial` (canônica para receita) — `cs_entregas_historicas.filial` é AGENTE/DESTINO quando fonte=FAT_JC | mesmo do frete | ⚠️ Armadilha confirmada Rubens 10/05/2026: `cs_entregas_historicas.filial` quando fonte=FAT_JC NÃO é origem — guarda destino/agente. Para origem real (ex: EUROSTAR embarca de 1.04 PR), usar `mgmt_fat_jc_staging.filial` ou `vw_fat_jc_deduzido.filial` |
+| **Agente entrega** | ESL `corporation.nickname` (em `freight.corporation`) | `cs_entregas_historicas.agente_entrega` (cache) | 15min novo + cron 02:15h backfill | Função `fn_backfill_agente_entrega()` |
+| **Usuário Torre** | `usuario_perfil` (RBAC) | `usuario_perfil` | manual | 35+ usuários, domínio @icaroexpress.com |
+| **Atendente RA** | Google Sheet sync | `ra_atendentes_map` | hourly | **Sync quebrado há 6 dias** — investigar credenciais Google |
+| **Email** | MS Graph (Microsoft 365) | `cs_email_threads` | 15min | **OAuth pode estar expirado** — última atualização 3 dias atrás |
+| **KPI Cliente** | MV interna | `mv_cli360_data`, `mv_cli360_margem_real` | refresh 04:30 | Cli360 |
+
+## Regras de uso
+
+1. **Sempre prefira ESL nativo** quando o campo existe (cliente, vendedor, atendente, filial). Tabelas locais só pra dados que ESL não tem.
+2. **Helpers canônicos:** `is_deutsche(filial, agente)` + `segmento_pagador(pagador)` em todas as views consolidadas
+3. **Verificar freshness antes de tomar decisão:** `SELECT * FROM vw_etl_freshness WHERE is_critica=true AND status_freshness != 'OK'`
+4. **Documentar mudanças no catálogo:** adicionar/atualizar linha em `etl_sources` quando criar nova fonte
+5. **Painel "Saúde Dados"** na sidebar da Torre é o termômetro oficial do pipeline
+
+## Próximas ações P0 desta camada
+
+- [x] Catálogo `etl_sources` + view `vw_etl_freshness` criados
+- [x] Painel "Saúde Dados" deployado e **schema corrigido em 10/05/2026** (estava lendo colunas inexistentes — bug silencioso)
+- [x] Cron 06h `data-integrity-alerter` rodando (verificado última exec 10/05 09:00, 15 checks)
+- [x] ra_atendentes voltou a sincronizar (27 min atraso em 10/05)
+- [x] inbox_emails MS Graph rodando (~65 min atraso, OK)
+- [x] esl-fetch-occurrences com gap_id=0 em 10/05 (não está mais enfileirando)
+- [ ] **cli360 + cli360_margem `SEM_DADOS`** — MV não atualiza; investigar refresh 04:30 que está parado
+- [ ] **whp_lo + sinistros `SEM_DADOS`** — fontes nunca foram carregadas
+- [ ] **256 cron failures nas últimas 24h** (check `cron_falhas_24h` CRÍTICO em 10/05) — investigar quais jobs
+- [ ] **margens_cobertura_abril 19,7%** (CRÍTICO, threshold 50%) — abr/2026 com cobertura ruim
+- [ ] **pendentes_sem_agente 66,1%** (CRÍTICO, threshold 60%) — backfill agente_entrega não acompanhando
+- [ ] **briefing_vs_otd_consistencia gap=1797** (CRÍTICO, threshold 200) — divergência forte entre briefing executivo e OTD por filial
+- [ ] Implementar **`etl_runs` log table** + Onda SSoT-2 (orquestrador unificado)
+- [ ] Sincronizar `vendedor` da ESL pra eliminar `cs_atendente_clientes` manual
+
+## Estado real das 21 fontes (snapshot 10/05/2026 22:00)
+
+**Críticas (8):**
+- ✅ OK: `fretes_jc`, `margens_jc`, `faturamento_jc`, `filiais_canon` (12 min)
+- 🟡 ATENÇÃO: `ocorrencias_esl` (37 min), `usuario_perfil`/`atendente_cliente` (cadastrais, sem refresh há 13d)
+- ❌ SEM_DADOS: `cli360`, `cli360_margem`, `whp_lo`, `sinistros`
+
+**Não-críticas (13):**
+- OK: agente_entrega_cache, cons_rodo, tracking_awbs, ra_atendentes, ocorrencias_catalog, grupos_ocorrencia
+- ATENÇÃO: inbox_emails (65 min)
+- CRÍTICO: ocorrencias_legacy (124 dias — esperado, é legacy)
+- SEM_DADOS: atlas_nfe_compras_xml, cons_aereo
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>torre_fontes_canonicas.md</code></em></small>

@@ -1,0 +1,129 @@
+---
+title: "Whirlpool NextDay SP — Regra completa do fechamento mensal"
+description: "Modelo contratual da operação NextDay SP (Whirlpool/MLOG). Como compor a Carta de Crédito mensal, regras de cobrança de reentregas, ICMS/ISS via reembolso, e tratamento do erro NotFis Whirlpool."
+---
+# Operação NextDay São Paulo — Whirlpool / MLOG / WHOUSE
+
+## Modelo contratual
+
+```
+1. FECHAMENTO FIXO MENSAL          R$ 237.600,00 (frota dedicada 8 veíc.)
+                                    R$ 216.000,00 em meses curtos (Fev/26)
+
+2. (−) FATURADO POR CT-e/NFSe S/ IMPOSTOS
+       ↑ líquido emitido nas notas (saída via fiscal)
+       ↑ varia conforme qtd de NFs do mês
+
+3. (+) ADICIONAIS VARIÁVEIS:
+       • KM excedente (acima da franquia mensal de 10.560 km)
+         valor: R$ 3,60/km (até Mar/26) · R$ 3,7789/km (Abr/26+ com reajuste)
+       • Horas Extras (além de 8h48 jornada base)
+         valor: R$ 120/h (até Mar/26) · R$ 125,964/h (Abr/26+)
+       • Reentregas / Devoluções: (Tentativas-1) × 60% Super Rápida × m³
+
+4. (+) REEMBOLSO ICMS + ISS DESTACADOS
+       ICMS: Ícaro recolhe → MLOG se credita → reembolsa
+       ISS:  retido pela MLOG na fonte → creditado à Ícaro
+
+5. (=) FATURAR POR CARTA DE CRÉDITO
+```
+
+## Valores únicos de frete CT-e/NFSe (operação)
+
+A operação foi precificada com valores ÚNICOS:
+- **R$ 118,01** = CT-e modal rodoviário interestadual (com ICMS embutido)
+- **R$ 109,32** = NFSe serviço municipal (com ISS embutido)
+
+Variações abaixo de R$ 50 indicam **erro de emissão NotFis** (Whirlpool envia
+arquivo errado). Esse erro é **cosmético**: muda a proporção CT-e/Carta mas
+o líquido recebido fica igual (o complemento entra na Carta de Crédito).
+
+## Reentregas — regra de cobrança
+
+```
+Tentativas = 1 → Entrega NextDay normal. Sem cobrança extra (já no CT-e).
+Tentativas = 2 → 1 reentrega Ícara. Cobra 1× frete reentrega 60%.
+Tentativas = N → (N-1) reentregas. Cobra (N-1)× frete reentrega 60%.
+
+Devolução: mesma regra (cliente recusou após N tentativas).
+NF em manifesto NextDay W-HOUSE na 1ª: SEM cobrança extra.
+NF em aberto: NÃO entra no mês (só finalizadas/devolvidas).
+
+Tent=0 + ocorrência "Devolução com cobrança" → considera Tent=2 (mín 1 reentr).
+```
+
+## Cálculo do valor de cada reentrega
+
+```
+m³ = peso_cubado / 167                    (regra Whirlpool)
+faixa = lookup na Tabela Super Rápida pelo m³
+frete_bruto = MAX(frete_min, m³ × frete_var)
+frete_60% = frete_bruto × 0,60
+frete_final = frete_60% × (1 + reajuste_diesel_do_mes)
+valor_total_nf = (Tentativas-1) × frete_final
+```
+
+## Reajustes contratuais (vigência)
+
+- **Até Mar/2026**: sem reajuste contratual nem diesel
+- **Abr/2026**: reajuste contratual 4,97% + 1ª de 4 parcelas diesel 0,80%
+- Custo fixo / veículo (Abr/26+): R$ 31.176,09 (de R$ 29.700)
+- Hora extra (Abr/26+): R$ 125,964 (de R$ 120)
+- Km excedente (Abr/26+): R$ 3,7789 (de R$ 3,60)
+
+## Pivô temporal
+
+Apuração por **data de entrega** (`data_entrega` ou `data_ultima_ocorrencia`
+quando devolvido), não pela data do CT-e.
+
+## Filtros operacionais (banco)
+
+Para identificar uma NF da operação NextDay SP:
+- `filial = '1.02 ICARO SP'`
+- `pagador_frete ILIKE '%MLOG%'`
+- Manifesto NextDay vem da filial `'1.09 ICARO W-HOUSE'`
+
+## Tabela Super Rápida (vigente desde 2025-01)
+
+11 faixas SP01F(SR), m³ × R$/m³:
+
+| Início | Fim | Frete Mín | Frete Var |
+|---|---|---|---|
+| 0,001 | 0,100 | 134,35 | 294,59 |
+| 0,110 | 0,200 | 134,35 | 267,77 |
+| 0,210 | 0,350 | 134,35 | 265,09 |
+| 0,351 | 0,500 | 139,06 | 262,44 |
+| 0,501 | 0,600 | 143,92 | 259,82 |
+| 0,601 | 0,900 | 148,82 | 257,22 |
+| 0,901 | 1,150 | 148,82 | 254,65 |
+| 1,151 | 1,400 | 148,82 | 252,10 |
+| 1,401 | 3,000 | 148,82 | 249,58 |
+| 3,001 | 10,000 | 148,82 | 203,85 |
+| 10,001 | 40,000 | 148,82 | 179,82 |
+
+## Tabelas Supabase relevantes
+
+Projeto: `hbrvoairynwsliyxxgsg` (ZYONCS) · schema `nextday_sp`
+
+- `fretes` — NFs/CT-e (~30k linhas)
+- `manifestos` — manifestos W-HOUSE (1.823)
+- `carregamentos` — embarques NextDay (TR pivô)
+- `tabela_super_rapida` — faixas vigentes
+- `parametros_mensais` — reajustes por mês
+- `vw_relatorio_mensal_entregas` — fechamento mensal calculado
+- `vw_nfs_com_reentrega` — detalhe NF a NF
+- `fn_calcular_valor_reentrega(m3, mes)` — fórmula contratual
+
+## Pontos de atenção identificados
+
+1. **1.939 NFs órfãs** (banco sem cobrança oficial) — R$ 192k investigar
+2. **374 NFs cobradas em mês errado** — distorce confronto mensal
+3. **611 NFs no oficial não importadas** — gap ETL (precisa API ESL)
+4. **Erro NotFis Whirlpool** Abr-Mai/2025 — ~1.600 NFs com valor < R$ 50
+   (não causa perda — só muda proporção CT-e/Carta)
+5. **Jan-Jul/2025**: arquivos FRETES sem peso_cubado em ~90% das NFs →
+   m³ NULL → `fn_calcular_valor_reentrega` retorna 0. Precisa backfill ESL.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>whirlpool_nextday_regra_completa.md</code></em></small>

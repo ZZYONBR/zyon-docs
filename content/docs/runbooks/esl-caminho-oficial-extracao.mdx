@@ -1,0 +1,43 @@
+---
+title: "ESL Cloud — caminho oficial para extrações (use ANTES de fazer manual)"
+description: "Antes de processar qualquer CSV/XLSX manual do ESL, consultar as 3 memórias ESL existentes. ESL tem Data Export REST + GraphQL + endpoint web autenticado — a maioria das extrações é automatizável."
+---
+ESL Cloud já tem 3 caminhos oficiais documentados nas memórias do MEMORY.md. Sempre que aparecer um CSV/XLSX exportado manualmente do ESL ou pedido de extração, consultar PRIMEIRO essas memórias antes de processar:
+
+**Memórias existentes que indexam o ESL** (em ordem de uso):
+
+1. **`esl_data_export_api.md`** — Data Export REST (mais usado)
+   - Endpoint: `POST /api/analytics/reports/{report_id}/export` com JSON body
+   - Token: `vault.decrypted_secrets.ESL_TOKEN`
+   - Reports conhecidos: 2496 (FAT_JC), 2567 (CONS_AEREO), 2568 (CONS_RODO), 3314 (Ocorrências WHP), 3779 (WHP_LO), 4364 (SINISTROS), 6728 (NF-e compras)
+   - Filtros aceitos: service_at, delivered_at, issue_date, opening_at
+   - Rate limit: 2s entre requests; cache 1h em 7-31d; 12h em >6m
+   - Bug histórico: form-urlencoded é ignorado, sempre JSON body
+
+2. **`esl_graphql_lookup.md`** — GraphQL `/graphql`
+   - FreightInput/CteInput/IndividualInput
+   - Conclusão: destinatários NF não estão como `individual` (não usar para top-30 cliente)
+
+3. **`esl_compras_xml_report.md`** — XMLs de compras
+   - 2 caminhos: Data Export 6728 (XLSX 37 cols) + endpoint web `POST /purchase/invoices/download_nfes`
+   - SEFAZ DFe direto como fallback
+
+4. **`atlas_nfe_compras_pipeline.md`** — pipeline já em produção
+   - schema `atlas.nfe_compras_xml` em ZYONCS
+   - edge function `atlas-nfe-compras-upsert` ACTIVE
+   - launchd no Mac mini 04h15 (aguarda Vault ESL creds)
+
+**Why:** em 2026-05-09 19h, processei manualmente CSV `frete_relacao_sintetico_09-05-2026_19-14.csv` que Rubens exportou do ESL para destravar pendência 3 (top-30 clientes para ÍCARUS NPS). Funcionou — mas o caminho oficial é cron automatizado via Data Export report 2496 (FAT_JC) ou endpoint similar para "frete_relacao_sintetico". Caminho manual é aceitável como **destravamento pontual**, mas vira **dívida técnica** se virar rotina. Pendência 4 (ETL ESL→Supabase consolidado) exatamente endereça essa automatização.
+
+**How to apply:**
+- **Antes de propor extração ESL manual**, ler as 4 memórias acima e verificar se já existe report ID, edge function, ou pipeline cobrindo a necessidade.
+- **Se for caminho novo**, atualizar `esl_data_export_api.md` com o report ID descoberto + filtros usados + tamanho típico do XLSX.
+- **Se for caminho automatizável que ainda não foi automatizado**, sinalizar como pendência específica de DAEDALUS (Sprint 2+) ou ATLAS (já tem pipeline NF-e funcionando — pode replicar padrão).
+- **Encoding padrão de exports ESL**: `cp1252` (não UTF-8). Números em padrão BR (vírgula decimal, ponto milhar). Confirmado em 09/05 com `frete_relacao_sintetico`.
+- **Pagadores internos Ícaro**: filtros `1.0X ICARO` aparecem como pagador em alguns extratos — sempre filtrar (1.01 JOI, 1.02 SP, 1.05 RJ, 1.07 CPQ).
+- **Top-30 automatizado**: quando Pendência 4 (ETL ESL→Supabase) entrar em produção, o top-30 deve sair de uma view materializada `hermes.vw_top30_pagadores` ou similar — não mais de CSV manual.
+- **Rate limit lembrado**: ESL aceita ≤1 extração/12h em períodos >6 meses. Não pedir extrações repetidas no mesmo dia para o mesmo report sem cache.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>esl_caminho_oficial_extracao.md</code></em></small>

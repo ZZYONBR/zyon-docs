@@ -1,0 +1,122 @@
+---
+title: "DEMÉTER — Agente de Compras / Suprimentos (16º agente ZZYON)"
+description: "**Criado**: 2026-05-14"
+---
+# DEMÉTER — Agente de Compras / Suprimentos (16º agente ZZYON)
+
+**Criado**: 2026-05-14
+**Camada**: Vertical (Camada 2)
+**Status**: A construir — Sprint 8-9 (após ATLAS v1 estável)
+**Localização futura**: `zyon-agents/demeter/`
+
+---
+
+## Contexto
+
+A Ícaro Express não tinha agente dedicado a suprimentos. O ATLAS cobre o lado
+financeiro/contábil das compras (pipeline `atlas-nfe-compras-upsert`, conciliação NF
+entrada), mas não o fluxo operacional de aquisição: solicitação → cotação → aprovação →
+pedido → recebimento → pagamento.
+
+**BINÁRIO DISTRIBUIDORA** (CNPJ 07.384.807/0004-67) é **CLIENTE** da Ícaro — importa
+equipamentos eletrônicos e usa a Ícaro como transportadora. Não é fornecedor.
+Os XMLs NF-e do projeto BINARIO_XMLs_2026 são NF-es fiscais do transporte, não de
+compras da Ícaro.
+
+---
+
+## Domínio
+
+Gestão completa do ciclo de compras e suprimentos da Ícaro Express:
+- Frete terceirizado (maior categoria de custo variável, 40-60%)
+- Combustível
+- Manutenção + pneus
+- Seguros (carga, frota, RCF-DC)
+- Embalagens e suprimentos operacionais
+- TI / licenças / SaaS
+- EPI / uniformes
+- Aluguel de CDs / espaço operacional
+
+---
+
+## Tools principais
+
+| Tool | Nível | Descrição |
+|---|---|---|
+| `solicitar_compra` | L1 | Abre PO a partir de solicitação interna |
+| `cotar_fornecedores` | L1 | Envia RFQ e consolida respostas |
+| `aprovar_pedido` | L2 | Workflow aprovação com alçadas (Jean L2 / Rubens L3) |
+| `conciliar_nf_entrada` | L1 | Cruza NF recebida × PO aberto |
+| `dashboard_spend` | L1 | Gasto por categoria / filial / período |
+| `avaliar_fornecedor` | L1 | Atualiza score pós-entrega |
+| `alertar_vencimento_contrato` | L1 | Cron de contratos a renovar |
+
+---
+
+## Alçadas de aprovação
+
+| Valor | Aprovador |
+|---|---|
+| < R$ 1.000 | DEMÉTER autônomo (L1) |
+| R$ 1.000 – R$ 10.000 | Jean Cleiton (Financeiro) — L2 |
+| > R$ 10.000 | Rubens — L3 |
+| Contratual > R$ 50.000 | THEMIS/LEX revisa antes da aprovação L3 |
+
+---
+
+## Schema canônico (ZYONCS — `compras.*`)
+
+```sql
+compras.fornecedores       -- CNPJ, nome, categoria, score, status
+compras.pedidos            -- PO, solicitante, categoria, valor, status, aprovador
+compras.itens_pedido       -- detalhamento do pedido
+compras.cotacoes           -- RFQ enviadas e respostas
+compras.conciliacao_nf     -- NF entrada × PO (extends atlas.nfe_compras_xml)
+compras.contratos          -- contratos vigentes com vencimento
+compras.spend_mensal       -- MV consolidada para ATLAS/COSMOS
+```
+
+---
+
+## Integrações
+
+| Agente / Sistema | Tipo | Descrição |
+|---|---|---|
+| **ATLAS** | Bidirecional | Validação orçamento, liberação pgto, DRE custo |
+| **HEFESTO** | Recebe | Solicitações manutenção / pneus / veículos |
+| **TORRE** | Recebe | Solicitações suprimentos operacionais |
+| **ATENA** | Recebe | Solicitações gestão geral |
+| **SOFIA** | Lê | SOPs de compras, contratos fornecedores |
+| **THEMIS/LEX** | Delega | Análise contratual fornecedores > R$ 50k |
+| **ZYONCS** | Lê | `atlas.nfe_compras_xml` (pipeline já ativo) |
+| **Sage** | Lê/Escreve | Contas a pagar, cadastro fornecedores |
+| **Cláudio (WhatsApp)** | Via Evolution | Aprovação rápida de POs por alçada |
+
+---
+
+## Pré-requisitos para implementação
+
+1. ATLAS v1 estável (DRE de custos + conciliação parceiro funcionando)
+2. `atlas-nfe-compras-upsert` em produção estável (já ativo)
+3. HEFESTO com cadastro de fornecedores de frota validado
+4. Sage integrado ao ATLAS (Sprint 6)
+
+---
+
+## Posição no roadmap
+
+**Sprint 8-9** (base mai/2026 = Sprint 8 = out/nov/2026 estimado)
+- Sprint 8A: schema `compras.*` + tools `solicitar_compra` + `cotar_fornecedores`
+- Sprint 8B: workflow aprovação (`aprovar_pedido`) + integração Jean/WhatsApp
+- Sprint 9: `conciliar_nf_entrada` + `dashboard_spend` + integração ATLAS/Sage
+
+---
+
+## Convenção de nome
+
+**DEMÉTER** — deusa grega da colheita e abundância; garante que os recursos existem
+para a operação continuar. Codinome interno consistente com o padrão olímpico ZZYON.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>demeter_agente_compras.md</code></em></small>

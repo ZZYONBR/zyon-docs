@@ -1,0 +1,200 @@
+---
+title: "RA1000 — Automação v2 (loop 100% rodando 24/7 sem Claude humano)"
+description: "Camada de automação ativada em 2026-05-07 21:35 BRT. Mac mini é gateway WhatsApp↔Supabase. pg_cron faz timeouts e ETL. Pipeline rola sozinho, só pede aprovação Rubens nos drafts e tréplicas."
+---
+# RA1000 — Automação v2 (server-side + Mac mini gateway)
+
+Mudou tudo em 2026-05-07: agora o pipeline RA1000 **NÃO depende** do Claude humano lembrar de cada passo. Os jobs rodam 24/7 e só pingam o Rubens (ou o próximo Cláudio) quando chega resposta de gestor ou quando precisa de OK pra postar tréplica.
+
+## Por que precisei desta camada
+
+`pg_net` no Supabase **NÃO alcança** Tailscale `100.65.23.99` (timeout TCP/SSL handshake). Logo, qualquer coisa que envolva Evolution API tem que rodar de uma máquina conectada à Tailscale — Mac mini é a escolha óbvia (já tem launchd + scripts + heartbeat).
+
+## Arquitetura final
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  SUPABASE (zyoncs)                                          │
+│  ─ cs_ra_reclamacoes (canonical) + reclamacoes_ra (legacy)  │
+│  ─ ra_acionamentos (estado pedido→resposta gestor)          │
+│  ─ pg_cron jobs:                                            │
+│     · cs_ra_etl_esl_dispatch    :00,15,30,45                │
+│     · cs_ra_etl_esl_process     :01,16,31,46                │
+│     · cs_ra_acionamentos_timeout (jobid 147) :07 horária    │
+│     · ra1000_health_alert       */15 8-19 1-6               │
+└────────────────────┬────────────────────────────────────────┘
+                     │ REST/RPC
+                     │
+                     ▼
+┌─────────────────────────────────────────────────────────────┐
+│  MAC MINI (rubens, Tailscale 100.65.23.99)                  │
+│  ~/.local/bin/                                               │
+│   ├ ra1000-keepalive.sh        (10min)                      │
+│   ├ ra1000-poll-responses.sh   (5min)  NOVO                 │
+│   ├ ra1000-poll-responses.py   (helper Python)              │
+│   ├ ra1000-morning-briefing.sh (07:03 dias úteis) NOVO      │
+│   └ ra1000-weekly-reminder.sh  (sex 23h)                    │
+│  ~/Library/LaunchAgents/                                    │
+│   ├ com.zzyon.ra1000.keepalive.plist                        │
+│   ├ com.zzyon.ra1000.pollresponses.plist  (StartInterval=300)│
+│   ├ com.zzyon.ra1000.briefing.plist (CalendarInterval 7:03) │
+│   └ com.zzyon.ra1000.weekly.plist                           │
+└────────────────────┬────────────────────────────────────────┘
+                     │ HTTP local Tailscale
+                     ▼
+            Evolution API icaro-claudio
+            http://100.65.23.99:8080
+```
+
+## Funções server-side criadas (migration `cs_ra_automation_v1`)
+
+### `cs_ra_pipeline_briefing() RETURNS text`
+Retorna texto formatado do estado das RAs ativas (em_replica/em_treplica counts + lista pendentes + acionamentos pendentes/vencidos). Usado pelo briefing 07h.
+
+### `cs_ra_check_acionamentos_timeout()`
+Para cada `ra_acionamentos` com `prazo_resposta_em < now()-5min` e `status='enviado'`:
+- Marca como `timeout`
+- Se nivel='gestor' → cria novo acionamento `nivel='kevin'` (5547997571032)
+- Se nivel='kevin'  → cria novo acionamento `nivel='rubens'` (5547999711598)
+- Logs evento `acionamento_timeout_escalation` em historico_log
+
+Roda hourly via pg_cron jobid 147 (`7 * * * *`). Os novos acionamentos ficam com status `pendente_envio` — Mac mini script pega e dispara.
+
+### `cs_ra_registrar_resposta_acionamento(p_destinatario_whatsapp, p_resposta_texto, p_msg_received_at)`
+Casa resposta WhatsApp com acionamento pendente daquele número (mais recente, dentro de 24h). Tenta extrair data via regex `DD/MM(/YYYY)?`. Se data firme:
+- Update `ra_acionamentos.data_firme_recebida + status='respondido_com_data'`
+- Update `cs_ra_reclamacoes.esl_data_entrega = data_firme`
+- Log evento `resposta_gestor_capturada`
+
+Se sem data: `status='respondido_sem_data'`.
+
+### `vw_ra_pipeline_status` view
+Estado real-time das RAs ativas + último acionamento + minutos desde acionamento.
+
+## Mac mini scripts
+
+### `ra1000-poll-responses.sh` (cada 5 min)
+1. Lê `ra_acionamentos` pendentes via REST (`status=enviado, resposta=null, enviado_em<now-12h`).
+2. Pra cada um, chama Evolution `POST /chat/findMessages/icaro-claudio` com `where.key.remoteJid=<numero>@s.whatsapp.net&fromMe=false`.
+3. Filtra mensagens com `messageTimestamp > enviado_em`.
+4. Concatena textos + chama RPC `cs_ra_registrar_resposta_acionamento`.
+5. Notifica Rubens via Evolution (`5547999711598`).
+
+Logs: `~/.local/var/log/ra1000-poll.log`
+
+### `ra1000-morning-briefing.sh` (07:03 dias úteis)
+1. RPC `cs_ra_pipeline_briefing` retorna texto.
+2. Envia ao Rubens via Evolution.
+
+Logs: `~/.local/var/log/ra1000-briefing.log`
+
+## Fluxo automático completo
+
+```
+Cliente posta réplica RA
+  ↓ ETL ESL automático (4x/h dispatch + process)
+cs_ra_reclamacoes enriquecido com endereço/peso/CTe
+  ↓ ainda manual: Cláudio gera draft, manda Rubens, posta painel
+Painel respondido + acionamento gestor disparado
+  ↓ ra_acionamentos linha criada (prazo +1h, status=enviado)
+  │
+  ├─ Gestor responde no WhatsApp
+  │    ↓ ra1000-poll-responses (5min)
+  │    Evolution API findMessages → match → RPC registrar
+  │    ↓ se data firme → cs_ra_reclamacoes.esl_data_entrega
+  │    ↓ notifica Rubens "RA1000 · resposta capturada"
+  │    Cláudio (Rubens trigger) gera draft V3 com data firme + posta
+  │
+  └─ Gestor NÃO responde em 1h
+       ↓ cs_ra_check_acionamentos_timeout (cron :07)
+       ↓ status=timeout + cria novo acionamento Kevin (30min)
+       ↓ Kevin não responde → escala Rubens (30min)
+```
+
+## Quando o próximo Cláudio entrar
+
+1. Ler `ra1000_pipeline_completo.md` (fluxo base)
+2. Ler ESTE doc (camada automação)
+3. Rodar `SELECT * FROM vw_ra_pipeline_status;` pra ver estado real-time
+4. Rodar `SELECT cs_ra_pipeline_briefing();` pra ver resumo
+5. Verificar `~/.local/var/log/ra1000-poll.log` no Mac mini (ssh rubens@100.65.23.99) — última execução deve ser <5min atrás
+6. Verificar acionamentos vencidos sem resposta antes de mandar nova validação:
+   ```sql
+   SELECT * FROM ra_acionamentos
+   WHERE resposta_recebida_em IS NULL AND status IN ('enviado','timeout','pendente_envio')
+   ORDER BY enviado_em DESC;
+   ```
+7. Para acionamentos `status='pendente_envio'` (criados por escalation timeout): disparar via Evolution + UPDATE status='enviado' + UPDATE evolution_msg_id.
+
+## Anti-padrões aprendidos
+
+- ❌ NÃO tentar `pg_net` para Tailscale 100.x.x.x — só HTTPS público funciona
+- ❌ NÃO usar f-strings com escape `\"` em Python 3.9 (SyntaxError)
+- ❌ NÃO usar `python3 - <<HEREDOC` quando já há pipe de stdin — separar em arquivo
+- ❌ NÃO confiar em `regexp_match` retornar tupla quando há OR de grupos opcionais — usar bloco `BEGIN...EXCEPTION`
+- ❌ NÃO esquecer de testar manualmente antes de carregar launchd (vc descobre o syntax error 5min depois)
+- ❌ NÃO usar janela de 12h em filtro de pendentes (perde acionamentos antigos sem resposta) — usar 48h. Corrigido em 2026-05-08 19:30 BRT na função `cs_ra_check_acionamentos_timeout` e em `ra1000-poll-responses.sh`.
+- ❌ NÃO usar status `pendente_envio` ou `timeout` em `ra_acionamentos` — constraint só aceita `enviado/lido/respondido/expirou`. Use `expirou` para fechar acionamento vencido e `enviado` para o novo (com WhatsApp já disparado).
+- ⚠️ Evolution API (`http://100.65.23.99:8080`) NÃO tem docker-compose nem launchd plist no Mac mini. Caiu em algum momento entre 21:12 BRT 07/05 e 19:30 BRT 08/05 e ninguém percebeu. Próximo passo: criar `com.zzyon.evolution.plist` para auto-restart + healthcheck.
+
+## Janela horária de envio (vigor desde 10/05/2026 ~20:15 BRT)
+
+Rubens definiu que mensagens automáticas aos gestores e notificações ao próprio CEO só saem em **horário comercial Ícaro Express**:
+- **Segunda a sexta: 07-19h BRT** (07:00 até 18:59)
+- **Sábado: 07-12h BRT** (07:00 até 11:59)
+- **Domingo: nada**
+
+### Crons pg_cron (Supabase)
+- `cs_ra_acionamentos_timeout` (jobid 147): `7 7-19 * * 1-5` (seg-sex)
+- `cs_ra_acionamentos_timeout_sab` (jobid 156): `7 7-11 * * 6` (sáb)
+- `ra1000_health_alert` (jobid 146): `*/15 8-19 * * 1-5` (seg-sex)
+- `ra1000_health_alert_sab` (jobid 157): `*/15 8-11 * * 6` (sáb)
+
+### launchd Mac mini
+- `com.zzyon.ra1000.briefing`: 07:03 seg-sáb (já estava OK; sábado também briefa)
+- `com.zzyon.ra1000.pollresponses` (5min, 24/7): continua lendo Evolution **sempre**, mas o script `ra1000-poll-responses.py` tem gate horário Python:
+  ```python
+  dow = now_brt.isoweekday()
+  if dow <= 5:   IN_HOURS = 7 <= hour <= 18  # seg-sex 07-19h
+  elif dow == 6: IN_HOURS = 7 <= hour <= 11  # sáb 07-12h
+  else:          IN_HOURS = False             # dom: nada
+  ```
+  - Sempre persiste resposta no banco via `cs_ra_registrar_resposta_acionamento`
+  - Só dispara WhatsApp ao Rubens se `IN_HOURS`
+  - Fora da janela: log "notificacao Rubens ADIADA (fora 07-19h BRT seg-sab / fora 07-12h sab)"
+
+### Helpers reutilizáveis
+- **Bash**: `~/.local/bin/ra1000-in-hours.sh` no Mac mini (exit 0 dentro / exit 1 fora). Usar antes de `curl` Evolution em qualquer script novo.
+- **SQL**: `cs_ra_in_business_hours()` no Supabase (boolean). Usar como guard em qualquer função PL/pgSQL que vá criar acionamento.
+
+### Defesa em profundidade
+- Poll script Mac mini filtra `nivel=neq.rubens` na query Supabase (acionamento nivel='rubens' significa CEO precisa ser notificado, não que ele vai responder — não polla inbox dele)
+- `cs_ra_in_business_hours()` SQL e helper bash conferem isoweekday + hora local BRT
+- Quando timeout cria nova linha Kevin/Rubens fora do horário, o WhatsApp ao novo destinatário só sai quando alguém (próximo Cláudio ou script futuro) checar `cs_ra_in_business_hours()`
+
+**Fluxo cobertura**: captura/persistência é 24/7 (banco fica sincronizado), envio aos humanos é apenas em janela comercial seg-sex 07-19h e sáb 07-12h.
+
+## Comandos úteis
+
+```bash
+# Forçar poll agora
+ssh rubens@100.65.23.99 'launchctl kickstart -k gui/$(id -u rubens)/com.zzyon.ra1000.pollresponses'
+
+# Ver últimas execuções
+ssh rubens@100.65.23.99 'tail -50 ~/.local/var/log/ra1000-poll.log'
+
+# Forçar briefing agora
+ssh rubens@100.65.23.99 'bash ~/.local/bin/ra1000-morning-briefing.sh'
+
+# Reload completo após editar script
+ssh rubens@100.65.23.99 'launchctl unload ~/Library/LaunchAgents/com.zzyon.ra1000.pollresponses.plist && launchctl load -w ~/Library/LaunchAgents/com.zzyon.ra1000.pollresponses.plist'
+```
+
+## Migrations relacionadas
+
+- `cs_ra_automation_v1` (2026-05-07) — cria 3 funções + view
+- pg_cron jobid 147 (`cs_ra_acionamentos_timeout`) — `7 * * * *`
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>ra1000_automation_v2.md</code></em></small>

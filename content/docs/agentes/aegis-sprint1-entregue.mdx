@@ -1,0 +1,47 @@
+---
+title: "AEGIS — Sprint 1 anchor schema (2026-05-10)"
+description: "Esqueleto Python + schema âncora aegis.* aplicado em ZYONCS. Tools Lei 13.103 (jornada_motorista, banco_horas, alertas_certificacoes, relatorio_mensal_13103) começam em Sprint 5. NÃO confundir com tools entregues — ainda não existem."
+---
+# AEGIS — Status real (2026-05-10)
+
+## Onde estamos de fato
+
+- **Código**: apenas esqueleto. [zyon-agents/aegis/](Users/rubens2/Desktop/15.%20IA%20AUTOMA%C3%87%C3%83O/zyon-agents/aegis) tem só:
+  - `__init__.py`, `orchestrator.py`
+  - `tools/__init__.py`, `handlers/__init__.py`, `tests/__init__.py` (todos vazios)
+  - `README.md` original (Sprint 5 prevê tools).
+- **Schema Supabase ZYONCS**: aplicado 10/05/2026 via branch dev → merge para main. Migration em `zyon-agents/aegis/migrations/001_aegis_anchor.sql`. Tabelas-âncora apenas.
+
+## Tabelas criadas (apenas âncoras)
+
+| Tabela | Propósito |
+|---|---|
+| `aegis.motoristas` | Espelho mínimo do cadastro HERA (LGPD: `cpf_hash`, nunca CPF cleartext) |
+| `aegis.motoristas_jornada` | Marcações Lei 13.103 — direcao/espera/intra_jornada/descanso/dsr |
+| `aegis.certificacoes_validade` | ANTT/MOPP/NR/Toxicológico/CNH com status gerado (vencida/30d/90d/ok) |
+| `aegis.banco_horas` | Banco de horas mensal com saldo gerado |
+| `aegis.relatorios_13103` | Relatório mensal obrigatório por filial + pct_conformidade |
+| `aegis.vw_alertas_certificacoes` | View viva de alertas — consumida por DAEDALUS routing |
+
+## Regra LGPD
+
+Sempre `cpf_hash` em `aegis.motoristas`. CPF cleartext só em HERA (ZYON.RH), consultado via federação Python — nunca SQL cross-project.
+
+## Erro de memória anterior (corrigido aqui)
+
+Versão de 2026-05-09 desta memória descrevia 4 tools L1, rules/lei_13103.py, InMemoryAegisRepo / SupabaseAegisRepo, 14 testes, smoke CLI. **Nada disso existe no disco** — provável alucinação ou sessão paralela cujo trabalho não foi persistido. Não considerar essa narrativa.
+
+## Próximo passo real
+
+Sprint 5 (jun/2026 conforme roadmap) implementa as 4 tools previstas no README:
+`jornada_motorista`, `banco_horas_consolidado`, `alertas_certificacoes`, `relatorio_mensal_13103`.
+
+## How to apply
+
+- Pré-requisito Sprint 5: decidir caminho Ahgora (REST/webhook vs CSV cron) com Hélio + Cidine.
+- Cadastro inicial de motoristas: importar via federação Python lendo `hera.colaboradores` (ZYON.RH) e gravando em `aegis.motoristas` com `cpf_hash`.
+- AEGIS escala para THEMIS quando há AIT/multa — `INSERT` em `themis.processos` (ZZYON LEX) via cliente dedicado.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>aegis_sprint1_entregue.md</code></em></small>

@@ -1,0 +1,86 @@
+---
+title: "ESL Cloud — Data Export API (regras críticas)"
+description: "Como integrar com o ESL Cloud da Ícaro para puxar relatórios de fretes/baixas/ocorrências. Inclui token, fluxo, gotchas e endpoints."
+---
+# ESL Cloud — Data Export API
+
+## Endpoint base
+- Tenant Ícaro: `https://icaro.eslcloud.com.br/`
+- Token Bearer único armazenado em `vault.decrypted_secrets.ESL_TOKEN`
+
+## Fluxo correto (4 passos)
+1. **POST** `/api/analytics/reports/{report_id}/export` com **JSON body** (não form-urlencoded — ISSO foi o bug que comeu 2 dias):
+   ```json
+   {
+     "export_to_ftp": false,
+     "search": { "freights": { "service_at": "24/04/2026 - 24/04/2026" } }
+   }
+   ```
+   Headers: `Authorization: Bearer {token}`, `Content-Type: application/json`
+   Retorna: `{ id, status: "enqueued", show_url, download_url: null }`
+
+2. **GET** `{show_url}` (ex: `/api/analytics/report_files/1137870`) — pollar a cada 5s até `download_url != null`. Pode demorar 30s-3min dependendo do tamanho.
+
+3. **GET** `{download_url}` — baixa XLSX. Se URL contém `x-amz-signature`, NÃO incluir Authorization header (URL pré-assinada S3).
+
+4. Parsear XLSX com `xlsx@0.18.5` em chunks de 500 linhas para não estourar memória do Edge Function (limite ~150MB).
+
+## Reports conhecidos do tenant Ícaro
+- `2496` — FAT_JC (faturamento, root=freight)
+- `2567` — CONS_AEREO (root=consolidation_aerial)
+- `2568` — CONS_RODO (root=consolidation_road)
+- `3314` — Ocorrências WHP - LO (root=freight) — **usado para baixas** quando filtra `delivered_at`
+- `3779` — WHP_LO (intercorrências)
+- `4364` — SINISTROS
+
+## Filtros aceitos (search_field)
+- `search[freights][service_at]` — Data do frete (obrigatório para reports root=freight)
+- `search[freights][delivered_at]` — Data de entrega (filtro de baixas)
+- `search[manifests][issue_date]` — Manifestos
+- `search[occurrences][opening_at]` — Ocorrências
+- `search[insurance_claims][opening_at_date]` — Sinistros
+- `search[consolidations][issue_date]` — Consolidações
+
+## Limites e cache
+- 2s entre requests do mesmo IP (senão HTTP 429)
+- Período < 7 dias: SEMPRE gera novo XLSX
+- Período 7d-31d: cache de 1h se mesmos filtros
+- Período 31d-6m: limita 1 nova extração/h
+- Período > 6m: limita 1 nova extração/12h
+
+## Tamanho típico do XLSX gerado
+- 1 dia, 1 cliente (Whirlpool): ~150KB - 470KB
+- 1 dia, todas filiais (~1.900 baixas): ~165KB
+- 7 dias completo: ~9MB
+- 1 ano completo (414k linhas): ~42MB (estoura memória do Edge — NÃO USAR)
+
+## Bugs conhecidos
+1. **Form-urlencoded é ignorado** — sempre use JSON body. ESL aceita os 2 formatos mas só processa filtros corretamente em JSON.
+2. **fn_ingest_ocorrencias_whp tem unique constraint em (cte_numero, ocorrencia_codigo, data_ocorrencia)** — se reimportar o mesmo XLSX, dá conflict. Já tem ON CONFLICT DO NOTHING aplicado.
+3. **GET DIAGNOSTICS ROW_COUNT no loop só pega último INSERT** — `inserted: 1` é falso quando 500 foram processadas mas só 1 foi nova. Para ver quantas REALMENTE entraram, comparar `count(*)` antes/depois.
+4. **fn_ingest_sinistros falha com `invalid numeric: "Outros"`** — campo numérico recebendo texto. Não corrigido ainda.
+
+## Tabelas mestras (frescor real dos dados)
+- `cs_tracking_awbs` — atualizada pelo ESL via webhook + OCORR_WHP cron 1x/h. Dados mais frescos.
+- `cs_esl_ocorrencias` — populada pelo `fn_ingest_ocorrencias_whp`. Frescor depende do sync.
+- `cs_entregas` e `cs_ocorrencias` — **legadas, dados de jan/2026, NÃO USAR**. Migrar views que ainda apontam para elas.
+- `cs_entregas_historicas` — base mestra (165k+ linhas), max em 21/04. Atualizada via FAT_JC.
+
+## Volume operacional Ícaro Express
+- ~1.631 fretes/dia emitidos
+- ~1.631 baixas/dia (variação 800-2000)
+- 1.993 linhas no XLSX típico de 1 dia (inclui múltiplas ocorrências por frete)
+- 314k+ emails históricos em `cs_email_messages`
+
+## Distribuição típica de baixas por filial (24/04/2026)
+- ICARO SP: 771
+- ICARO RJ: 257
+- AMPLA: 56
+- (resto distribuído entre Gollog, Jadlog, JOI, etc)
+
+## Token Data Export específico
+Existe um token específico de Data Export gerado em **Cadastros > Usuários > Aba API > Editar usuário > Gerar token** — diferente do Bearer geral. Hoje usamos o ESL_TOKEN do vault que já funciona para Data Export, mas se em algum momento der 401, é nesse caminho que se gera novo.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>esl_data_export_api.md</code></em></small>

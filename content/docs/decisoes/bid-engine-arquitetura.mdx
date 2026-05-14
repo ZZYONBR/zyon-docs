@@ -1,0 +1,21 @@
+---
+title: "BID Engine — arquitetura GitHub + Supabase"
+description: "Engine versionada de cotações da Ícaro Express para preservar memória de cálculos, alíquotas, margens e benchmark histórico de operações"
+---
+Decisão 2026-05-05: criada engine `icaro-bid-engine` em `squads/icaro-bid-engine` para virar fonte única de cotações dedicadas/spot/regional da Ícaro.
+
+**Estrutura**: GitHub guarda schema SQL + YAMLs (alíquotas, pisos CCT, frota, benchmarks) + templates Excel + Python generators. Supabase guarda dados versionados com RLS + audit log automático.
+
+**Why**: hoje cada bid (Whirlpool, Haier, Pichau, WebMed) é planilha solta. Mudou alíquota/piso CCT/diesel → tem que reabrir tudo. Sem benchmark histórico para responder "qual a margem média de operação dedicada SP linha branca?". Sem versionamento → "quem mudou esse 8% pra 12%?". Engine resolve fonte única + histórico auditável + benchmark instantâneo.
+
+**How to apply**: quando o usuário pedir nova cotação ou ajustar alíquotas/margens/custos, NÃO editar planilhas Excel diretamente. Editar YAML em `seed/`, rodar `seed_supabase.py`, depois `render_bid_xlsx.py` para gerar o Excel. Toda mudança fica versionada no git + audit_log Supabase.
+
+**Tabelas chave**: `clientes`, `operacoes`, `bids` (versionado por round), `bid_premissas` (JSON snapshot), `aliquotas_tributarias`, `encargos_mao_obra`, `pisos_salariais`, `custos_frota`, `precos_combustivel`, `benchmark_operacoes`, `audit_log`.
+
+**Integração**: vira `atlas-bid-mcp-server` no monorepo `squads/icaro-agents` (TypeScript MCP). Tools: `bid_create`, `bid_render`, `bid_simulate`, `bid_compare`, `benchmark_query`, `aliquota_set`, `piso_set`.
+
+**Primeiro caso uso**: Whirlpool WHOUSE Round 2 (28 VUCs SP) — premissas em `seed/whirlpool_round2_premissas.json`, planilha base em `BID WHOUSE 2ROUND/Round2_Custos_Encargos_Depreciacao_Reflexos_ICARO.xlsx`.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>bid_engine_arquitetura.md</code></em></small>

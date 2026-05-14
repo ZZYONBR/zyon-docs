@@ -1,0 +1,50 @@
+---
+title: "Frota Compliance · estado pós-Onda 1 (2026-05-03)"
+description: "Onda 1 completa, UI v2 live, calendário DETRAN/SC confirmado, bug de status_licenciamento identificado"
+---
+**Onda 1 COMPLETA em produção** (frota.zzyon.com):
+- UI v2 Compliance com Health + Multas em risco + Vencimentos
+- Edge fn `frt-sla-watcher` cron 07h + 17h BR (UTC 10h+20h)
+- 3 órfãs recuperadas (RAH7F43 ainda em prazo, podia virar R$520)
+- 109 multas com UF preenchida (87 SP, 7 RJ, 7 PR, 6 MG, 2 SC)
+- 90 atribuições ativas (era 87)
+- 2 alertas D3 críticos disparados live (placa SXX0A05/Welken/Campinas → Rafael CPQ)
+- Roteamento UF→líder reusa `cs_ra_routing_rules` (7 líderes + Kevin fallback)
+- Schemas: `vw_frt_vencimentos`, `frt_jobs_falhados` (DLQ), `vw_frt_health`
+
+**Calendário licenciamento DETRAN/SC (confirmado oficial):**
+| Final placa | Mês vencimento TRLAV |
+|---|---|
+| 1 | Março |
+| 2 | Abril |
+| 3 | Maio |
+| 4 | Junho |
+| 5 | Julho |
+| 6 | Agosto |
+| 7 | Setembro |
+| 8 | Outubro |
+| 9 | Novembro |
+| 0 | Dezembro |
+
+Regra: TRLAV é paga no mesmo mês da última parcela do IPVA.
+
+**Bug status_licenciamento identificado:**
+Snapshot DETRAN mostra `exercicio_licenciamento=2025` durante todo o ano enquanto IPVA não quita → código marca falsamente como VENCIDO.
+**Fix:** se IPVA ano_corrente tem alguma cota paga OU cota única paga → status = "em_renovacao" (não bloquear). Se IPVA zerado → realmente vencido.
+
+**Caso especial JCS6D30:** final 0, exercício 2026, pago antecipado por aquisição em 2025 → OK até 31/12/2026.
+
+**Diagnóstico atual (após fix do bug):**
+- Licenciamento vencido: 45/46 (era reportado, vai cair drasticamente após fix)
+- Multas SLA D3 risco: 2 ativos (Welken)
+- Multas estouradas (NIC): 75 irrecuperáveis
+- IPVA aberto: 29 placas
+- 17 placas sem PDF IPVA 2026
+
+**Why:** Frota Compliance é prioritário pq cada NIC custa R$14K/mês irrecuperáveis. Auto-FICI corta esse sangramento.
+
+**How to apply:** quando precisar atualizar regras de licenciamento ou roteamento, considerar o calendário acima e o fix de "em_renovacao" pra IPVA parcelado.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>frota_compliance_estado.md</code></em></small>

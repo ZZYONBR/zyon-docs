@@ -1,0 +1,21 @@
+---
+title: "Pichau CNPJ canônico"
+description: "CNPJ oficial Pichau Informática para lookup em ESL (issuerId/payerId) e cruzamentos de NF Pichau"
+---
+# Pichau — CNPJ canônico
+
+- **Razão social ESL:** PICHAU INFORMATICA
+- **CNPJ:** `09.376.495/0001-22` (raw: `09376495000122`)
+- **CNPJ embutido em chaves NF-e:** posições 7-20 da chave 44 dígitos → `09376495000122`
+- **issuerId ESL (NF Pichau merchandise):** `5569110` (confirmado via consulta GraphQL invoice → issuerId em 2026-05-13)
+
+## Onde usar
+- Filtrar `freight(params:{payerId: <Pichau_payer_id>})` no ESL GraphQL para batch lookups.
+- Cruzar manualmente NFs Pichau extraídas de planilhas indenização contra `cs_entregas_historicas.pagador ILIKE 'PICHAU%'` em ZYONCS.
+
+## Anti-padrão
+- NÃO confundir issuerId (NF de mercadoria = Pichau) com payerId (frete = Pichau paga Ícaro). Mesmo CNPJ, mas IDs podem diferir conforme cadastro ESL.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>pichau_cnpj.md</code></em></small>

@@ -1,0 +1,55 @@
+---
+title: "RA1000 — Template fixo de acionamento ao gestor (líder filial)"
+description: "Toda mensagem WhatsApp/email pro responsável pela entrega (Gabriel SAO, Davi RIO, Rafael CPQ, Emerson CWB, Renato BHZ, Jimmy JOI) DEVE conter os 7 dados do destinatário/carga. Sem isso, o gestor não consegue programar."
+---
+Toda mensagem ao líder de filial pra acionar tratativa/entrega RA1000 **deve** conter, em bloco fixo:
+
+```
+DESTINATÁRIO
+• Nome:        <cliente_nome>
+• CPF:         <cliente_cpf>
+• Telefone RA: <cliente_telefone — o que cliente informou no Reclame Aqui>
+• Email:       <cliente_email>
+
+CARGA
+• Embarcador:   <origem_cliente — Terabyte / PICHAU / Whirlpool / etc>
+• NF:           <nf_numero>  (se NF embarcador, marcar "(NF embarcador)")
+• Pedido:       <pedido_numero>
+• Peso real:    <peso_real kg>     [confirmar no ESL CTe X se vazio]
+• Peso taxado:  <peso_taxado kg>   [confirmar no ESL CTe X se vazio]
+• Volumes:      <volumes>          [confirmar no ESL se vazio]
+
+ENTREGA
+• Endereço completo: <rua, número, complemento, bairro, cidade/UF, CEP>
+                    [confirmar no ESL se vazio — NUNCA omitir o campo]
+• Cidade/UF:        <cidade>/<uf>
+
+RA
+• ID:        <ra_id>
+• Protocolo: <ra_protocolo>
+• URL:       <url_ra>
+• Status:    em_replica
+```
+
+## Why
+Rubens em 2026-05-05: gestores não conseguem programar entrega sem dados completos
+do destinatário + carga. Hoje as mensagens vinham só com nome/cidade — gestor tinha
+que ir ao painel RA, depois ao ESL, manualmente. Tempo perdido + erro humano.
+
+## How to apply
+- Sempre que `ra1000-replier` ou qualquer fluxo cumprir o passo "acionar gestor",
+  popular esse bloco com os dados em `cs_ra_reclamacoes` (campos: `cliente_nome`,
+  `cliente_cpf`, `cliente_telefone`, `cliente_email`, `origem_cliente`, `nf_numero`,
+  `pedido_numero`, `cidade`, `uf`, `ra_id`, `ra_protocolo`, `url_ra`).
+- Para `peso_real`, `peso_taxado`, `volumes`, `endereco`: cruzar com
+  `cs_tracking_awbs` (por `nf_number` ou `document_number`). Se vazio, marcar
+  "[confirmar no ESL CTe X]" — gestor confirma direto no ESL Cloud.
+- Telefone RA (campo `cliente_telefone` na canônica) tem prioridade sobre o telefone do cadastro
+  consumidor — o cliente informou no RA porque é o que ele quer ser contatado.
+- Email do RA → CC obrigatório pra base + Jimmy CC + Rubens BCC.
+- Esse template vale pra: WhatsApp ao gestor, email pra base, anexo no draft do
+  Cláudio quando relevante.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>ra1000_acionamento_gestor_template.md</code></em></small>

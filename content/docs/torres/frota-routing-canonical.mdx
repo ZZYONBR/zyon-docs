@@ -1,0 +1,69 @@
+---
+title: "Frota — Roteamento canônico de alertas (multas, IPVA, jornada)"
+description: "**Decisão arquitetural** (gravada em 2026-05-05): a alocação real de placas a filiais é dinâmica e vem dos **manifestos ESL dos últimos 90 dias** (uso operacion"
+---
+# Frota — Roteamento canônico de alertas (multas, IPVA, jornada)
+
+**Decisão arquitetural** (gravada em 2026-05-05): a alocação real de placas a filiais é dinâmica e vem dos **manifestos ESL dos últimos 90 dias** (uso operacional efetivo), não do cadastro estático em `frt_veiculos_detran.filial_alocacao`.
+
+## Hierarquia de resolução de filial
+
+Para qualquer alerta operacional (multa, IPVA, licenciamento, etc.):
+
+1. **Motorista identificado na multa** → usa filial do colaborador (`cs_colaboradores_cadastro.filial`)
+2. **Sem motorista** → usa **`vw_frt_placa_filial_dominante`** (manifestos 90d, mais peso ao mais recente)
+3. **Placa sem manifestos recentes** → fallback `frt_veiculos_detran.filial_alocacao`
+4. **Sempre** dispara também alerta consolidado para **Jean Silva** (financeiro)
+
+## Componentes vivos no Supabase
+
+- `fn_frt_filial_codigo(p_filial)` — normaliza qualquer codinome ESL (`1.01 ICARO JOI`, `1.09 ICARO W-HOUSE`, etc.) para código curto canônico (`JOI`, `WHP`, `SAO`, `RJ`, `DEUTSCHE`, etc.)
+- `vw_frt_placa_filial_dominante` — placa → filial canônica via manifestos 90d com `pct_filial_dominante` e `status_alocacao` (consistente / divergente / sem_cadastro)
+- `frt_routing_rules` — regras canônicas (`tipo_evento`, `criterio_chave`, `criterio_valor`, `gestor_email`, `prioridade`)
+- `fn_frt_route_alerta(tipo_evento, placa, filial_colaborador)` — retorna lista de gestores a notificar com prioridade
+
+## Mapeamento gestor × filial atual
+
+| Gestor | Email | WhatsApp | Filiais atendidas |
+|---|---|---|---|
+| **Cidine** | frota@icaroexpress.com | +5547997571420 | JOI |
+| **Luiz Ratti** | luiz.ratti@icaroexpress.com | +5511944618661 | SAO, RJ, **WHP (W-House Whirlpool SP)** |
+| **Jean Silva** | jean.silva@icaroexpress.com | +5547999204979 | * (consolidado financeiro sempre) |
+
+## Codinomes ESL → Código canônico
+
+```
+1.01 ICARO JOI         → JOI
+1.02 ICARO SP          → SAO
+1.09 ICARO W-HOUSE     → WHP   (Whirlpool SP, escopo Luiz Ratti)
+2.01 DEUTSCHE CARGO    → DEUTSCHE
+RIO (Duque de Caxias)  → RJ
+```
+
+## Tipos de evento configurados
+
+- `multa_nova`
+- `multa_vencendo` (D-3, D-1, D-0)
+- `ipva_vencendo`
+- `licenciamento_vencendo`
+- `jornada_violacao` (Lei 13.103)
+
+## Exemplo de uso
+
+```sql
+-- Multa em SXX0A03 (sem motorista identificado)
+SELECT * FROM fn_frt_route_alerta('multa_nova', 'SXX0A03', NULL);
+-- → Luiz Ratti (filial WHP via manifestos_90d, prioridade 2) + Jean Silva (consolidado)
+
+-- Violação jornada motorista colaborador JOI
+SELECT * FROM fn_frt_route_alerta('jornada_violacao', NULL, 'JOI');
+-- → Cidine (filial_colaborador, prioridade 1) + Jean Silva
+```
+
+## Por que manifestos > cadastro DETRAN
+
+Frota Ícaro é dinâmica: placas SXX0A* foram cadastradas como WHP mas hoje algumas estão em SP, outras em JOI temporariamente. Filial alocação cadastrada fica defasada. Manifestos ESL dos últimos 90d refletem uso real e atualizam automaticamente conforme novos manifestos chegam (sync diário 06h17 e 17h17 pelo cron `frt-esl-sync-*`).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>frota_routing_canonical.md</code></em></small>

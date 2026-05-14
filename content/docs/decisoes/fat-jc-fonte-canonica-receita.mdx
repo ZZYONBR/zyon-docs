@@ -1,0 +1,113 @@
+---
+title: "FAT-JC — fonte canônica única de RECEITA Ícaro (decisão Rubens 10/05/2026)"
+description: "Toda análise de receita real (faturamento Ícaro, margem, churn em R$) na TORRE deve consumir mgmt_fat_jc_staging.total_a_receber. cs_entregas_historicas.valor_frete tem cobertura esparsa (~12% em abr/2026) — NÃO usar para receita."
+---
+Decisão Rubens em 2026-05-10, durante auditoria EUROSTAR (caso churn): "FATURAMENTO - JC CONTEMPLARÁ TUDO". A partir desta decisão, **`mgmt_fat_jc_staging.total_a_receber` é a fonte única de RECEITA Ícaro** para todas as torres e agentes.
+
+## Por que essa decisão
+
+Investigação 10/05/2026 confrontou números do Rubens (planilha pessoal: EUROSTAR R$ 379.742 jan-abr/2026) contra o banco:
+
+| Fonte ZYONCS | EUROSTAR receita 4 meses | Cobertura geral |
+|---|---|---|
+| `cs_entregas_historicas.valor_frete` | jan NULL · fev R$ 44k · mar R$ 91k · abr R$ 98k = R$ 233k | ~12% (check `margens_cobertura_abril` CRITICO 11,8%) |
+| `mv_fretes_unificados.valor_frete` | derivado da anterior — R$ 233.439 | mesmo problema |
+| `mv_cli360_data.faturamento_icaro` | R$ 210.399 | derivado |
+| **`mgmt_fat_jc_staging.total_a_receber`** | **0** (EUROSTAR ainda não importado) | dez/2025–fev/2026, só MLOG/Whirlpool/BUD/Kulzer (10.384 fretes) |
+| Planilha pessoal Rubens (XLSX) | **R$ 379.742** | (fonte de verdade não-versionada) |
+
+**Conclusão**: receita real Ícaro NÃO está hoje no banco para a maioria dos pagadores. A diferença entre R$ 233k (banco) e R$ 379k (planilha) = 38% de gap. Decisões financeiras pela TORRE estão enviesadas até que FAT-JC complete cobertura.
+
+## Estado atual (10/05/2026, ~6 dias desde última importação)
+
+`mgmt_fat_jc_staging`:
+- 10.384 fretes
+- Período: 15/12/2025 → 28/02/2026 (gap mar/abr/2026)
+- Pagadores cobertos: MLOG ARMAZEM (6.343 + 1.386), WHIRLPOOL USP (2.365), BUD (142), Whirlpool S.A. (31), KULZER (12), OBR (11), ALVA (1)
+- Última `imported_at`: 04/05/2026 23:55 (5,99 dias atrás)
+- Schema completo (campos relevantes): `pagador_nome`, `pagador_nome_fantasia`, `data_frete`, `cte_numero`, `nf`, `valor_nf`, `total_a_receber`, `gris`, `ad_valorem`, `valor_pedagio`, `cache_custo_total`, `vendedor_nome`, `filial`, `destino_uf`
+
+Pendências para fechar a decisão canônica:
+1. **Importação contínua**: hoje é XLSX manual; precisa virar pipeline diário/semanal (DAEDALUS Sprint 1+).
+2. **Expansão de pagadores**: estender pra todos os pagadores (não só Whirlpool group).
+3. **Cobertura mar/abr/mai/2026**: hoje só vai até fev/2026.
+
+## Fronteira XML vs ESL Data Export (decisão Rubens 10/05/2026)
+
+**XML SEFAZ é SÓ para NFe de COMPRA** (Ícaro como destinatária — pipeline ATLAS, memória `atlas_nfe_compras_pipeline.md`). NÃO confundir com FAT-JC.
+
+| Necessidade | Caminho canônico | Memória |
+|---|---|---|
+| **Receita Ícaro (CT-e venda)** | ESL Data Export Report **2496 = FAT_JC** (root=freight) | `esl_data_export_api.md` + esta |
+| **NFe de compra Ícaro destinatária** | Data Export 6728 (XLSX 37 cols) + endpoint web `/purchase/invoices/download_nfes` (ZIP nfeProc) + SEFAZ DFe direto | `esl_compras_xml_report.md` + `atlas_nfe_compras_pipeline.md` |
+| **Consolidações aéreas** | Report 2567 (CONS_AEREO) | `esl_data_export_api.md` |
+| **Consolidações rodoviárias** | Report 2568 (CONS_RODO) | `esl_data_export_api.md` |
+| **Ocorrências Whirlpool LO** | Report 3314 + 3779 | `esl_data_export_api.md` |
+| **Sinistros** | Report 4364 | `esl_data_export_api.md` |
+
+**Caminho técnico para automatizar FAT-JC** (DAEDALUS Sprint 1+):
+1. Job diário no Mac mini chama POST `/api/analytics/reports/2496/export` com `{ search: { freights: { service_at: "DD/MM/YYYY - DD/MM/YYYY" } } }` — JSON body (não form-urlencoded — bug conhecido).
+2. Polling `show_url` até `download_url != null` (5s interval, 30s-3min típico).
+3. GET pré-assinado S3 (sem Authorization header).
+4. Parse XLSX com `xlsx@0.18.5` em chunks de 500 linhas.
+5. UPSERT em `mgmt_fat_jc_staging` com chave (`cte_chave` ou composto).
+6. Token Bearer: `vault.decrypted_secrets.ESL_TOKEN` (já existe).
+7. Atualizar `imported_at` para o check `fat_jc_freshness` ficar verde.
+
+Limites ESL: período <7d gera novo XLSX sempre; 7-31d cacheia 1h; >31d limita 1/h. Para job diário pegando os últimos 30d, usar janela móvel D-30 a D-1, sem cache issues.
+
+## Guard-rails ativados em 10/05/2026
+
+1. **`etl_sources.faturamento_jc`** atualizado: `tabela_destino=mgmt_fat_jc_staging`, `campo_timestamp=imported_at`, `freq_esperada_min=1440` (1 dia), `fonte_canonica=true`, `is_critica=true`, observacoes refletem decisão.
+2. **`data_integrity_checks.fat_jc_freshness`** novo check: ATENÇÃO se >30d sem importação, CRÍTICO se >60d. Roteia para Rubens+Hélio com escalação 60min.
+3. **Painel Saúde Dados** (torre-platform) já mostra a fonte com `fonte_canonica=true` em destaque.
+
+## Onde a TORRE ainda mostra valor "não-receita"
+
+- `vw_churn_risk_clientes` mostra `valor_90d` que é **`SUM(valor_nf)`** (mercadoria transportada), NÃO faturamento Ícaro. Precisa LEFT JOIN com FAT-JC quando este completar cobertura. Hoje o widget pode confundir CEO. **Ajustar texto do label** para "valor NF transportada" enquanto FAT-JC não cobre tudo.
+- `mv_cli360_data.faturamento_icaro` está calculado em cima do mesmo dado esparso — desconfiar até FAT-JC virar canônico.
+
+## Regra para todas as torres / agentes / análises
+
+- **Receita Ícaro**: **`public.vw_fat_jc_deduzido`** — view com regra dedup Deutsche/Gol/Jadlog aplicada (NÃO usar `mgmt_fat_jc_staging` direto).
+- **Margem**: `total_a_receber - cache_custo_total` da mesma view.
+- **Volume/Quantidade fretes**: continua via `cs_entregas_historicas` (tem cobertura completa).
+- **OTD/pontualidade**: `cs_entregas_historicas.pontualidade` (continua canônico).
+
+## Regra dedup Deutsche/Gol/Jadlog (apontamento Rubens 10/05/2026)
+
+Existe regra crítica entre **DEUTSCHE (transportador, 2.01)**, **ICARO (pagador, 1.x)**, **GOL (cia aérea)** e **JADLOG**. Sem ela, a receita do FAT-JC duplica trecho aéreo.
+
+**Fluxo físico** (memória `deutsche_dedup_regra.md`):
+1. Cia aérea (Gol etc.) emite **AWB** → fatura **Deutsche Cargo** (empresa do grupo, agente cargo aéreo)
+2. Deutsche → intermedia → **Jadlog** ou **Ícaro filial 1.x** (entrega capilar terrestre)
+3. O **mesmo movimento físico** aparece em DUAS bases:
+   - CT-e Deutsche em filial `2.01 DEUTSCHE CARGO JOI` (etapa aérea)
+   - CT-e Ícaro em filial `1.x` (trecho rodoviário)
+
+**Regra canônica**: excluir CT-e Deutsche dos consolidados quando a **mesma NF** já existe em filial Ícaro 1.x. Manter Deutsche apenas quando NF é EXCLUSIVA dela (aéreo puro sem trecho Ícaro).
+
+**Aplicada em** `vw_fat_jc_deduzido`:
+```sql
+NOT (is_deutsche(filial) AND nf IN (SELECT nf FROM mgmt_fat_jc_staging WHERE filial LIKE '1.%'))
+```
+
+Helpers reutilizados (já existiam): `public.is_deutsche(p_filial, p_agente_entrega)` + `public.segmento_pagador(p_pagador)` (CORE / WHP_BUD_MLOG).
+
+**Estado da regra em 10/05/2026**:
+- View criada e exposta a `anon` + `authenticated`.
+- Hoje 10.384 linhas no staging, ZERO Deutsche (ainda não importado). Quando o importer rodar Report 2496 sem filtro, vai trazer Deutsche também — a view filtra automaticamente.
+- Breakdown atual `vw_fat_jc_deduzido`: WHP_BUD_MLOG 7.939 linhas R$ 1.066k (92%); CORE 2.445 R$ 90k.
+
+**Why:** decisão Rubens explícita resolve ambiguidade histórica entre 4 fontes de receita conflitantes. Sem essa regra, ATLAS reportará margem errada, HERMES classificará clientes errado, MOHAMED radar de concentração estará enviesado, ÍCARUS NPS vai pra escala errada.
+
+**How to apply:**
+- Antes de qualquer query/view nova que envolva R$ de receita: SEMPRE usar `mgmt_fat_jc_staging.total_a_receber`.
+- Antes de criar dashboard com R$: validar contra esta memória; se a fonte ainda não tem o pagador alvo, sinalizar visualmente "FAT-JC pendente para este cliente" — não exibir número derivado.
+- DAEDALUS Sprint 1: prioridade alta para automatizar importação contínua FAT-JC.
+- HERMES Sprint 2: cruzar `pagador_nome` (FAT-JC) com `hermes.clientes.razoes_fiscais` para reconciliação canônica.
+- ATLAS Sprint 2+: TODA tool financeira deve ler de FAT-JC, com flag de cobertura por pagador.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>fat_jc_fonte_canonica_receita.md</code></em></small>

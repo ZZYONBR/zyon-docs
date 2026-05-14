@@ -420,7 +420,52 @@ DELETE /api/ra/emails-extras/:id          → desativar
 GET /api/ra/resolver?evento=X&filial=Y    → preview destinatários
 ```
 
-## 18. Caso de referência: Wallace Murillo (RA #247604999)
+## 18. ESL Cloud GraphQL — Lookup de fretes
+
+### Endpoint
+- URL: `https://icaro.eslcloud.com.br/graphql`
+- Auth: `Authorization: Bearer <ESL_TOKEN>` (Vault `vault.decrypted_secrets.ESL_TOKEN`)
+- Tipos canônicos: `FreightInput`, `CteInput`, `IndividualInput`
+
+### Queries testadas no caso Wallace (2026-05-04)
+
+| Query | Filtro | Resultado |
+|---|---|---|
+| `individual { name }` | nome do destinatário | 0 matches |
+| `individual { cpf }` | CPF do destinatário | 0 matches |
+| `freight { eslCode }` | código ESL | schema mismatch (`eslCode` não existe em `FreightBase`) |
+| `cte(number: "8036412")` | número pedido Terabyte | 0 matches |
+
+### Aprendizado central
+**Destinatários NF (consumidores finais) NÃO estão cadastrados como `individual` no ESL.**
+Eles ficam embedded em `freight`, não como entidade separada.
+Implicação: quando cliente abre RA por entrega atrasada, na maioria dos casos cai em **Fluxo D** (cliente precisa acionar embarcador para oficializar mudança — Ícaro NÃO tem autonomia para alterar destino sem ordem do pagador do frete).
+
+### Ordem de tentativa (no SKILL ra1000-replier)
+
+1. `cte(number: <NF>)` — mais confiável quando cliente fornece NF
+2. `individual(cpf: <CPF>)` — só pega remetentes cadastrados
+3. Se nada bater → Fluxo D + redirecionamento ao embarcador
+
+### Pendências de schema (próxima sessão)
+
+- [ ] Introspection completa de `FreightBase` para descobrir o campo correto que substitui `eslCode`:
+  ```graphql
+  query { __type(name: "FreightBase") { fields { name type { name kind } } } }
+  ```
+- [ ] Verificar se há `freight.recipientName` / `freight.recipientCpf` aceitando filtro
+- [ ] Documentar sintaxe `freight(filter: { recipient: { name: "..." } })`
+
+### Anti-padrões
+- NUNCA prometer mudança de endereço por conta própria
+- NUNCA tentar SQL direto no Postgres do ESL — só GraphQL ou Data Export REST
+- NUNCA confundir token GraphQL com token Data Export (hoje é o mesmo Bearer, mas podem ser separados)
+
+### Complementa
+
+A integração REST (Data Export, reports IDs, gotchas) está documentada em memória interna `esl_data_export_api.md` e não duplicada aqui.
+
+## 19. Caso de referência: Wallace Murillo (RA #247604999)
 
 Primeira reclamação processada fim-a-fim com o pipeline novo:
 

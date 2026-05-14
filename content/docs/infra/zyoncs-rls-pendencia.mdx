@@ -1,0 +1,69 @@
+---
+title: "ZYONCS — 55 tabelas sem RLS (achado de segurança)"
+description: "Advisor Supabase reportou 55 tabelas com RLS desabilitado em ZYONCS (hbrvoairynwsliyxxgsg) durante auditoria TORRE 10/05/2026. Lista priorizada e plano de remediação."
+---
+Em 2026-05-10, durante a auditoria da TORRE de Controle, o advisor do Supabase reportou **55 tabelas em ZYONCS (`hbrvoairynwsliyxxgsg`) com Row Level Security DESABILITADO**. Em Supabase, isso significa que qualquer pessoa com a `anon key` (pública, embutida no JS de torre-platform e demais torres) pode **ler ou modificar todas as linhas dessas tabelas**.
+
+⚠️ **Não foi remediado nesta sessão** — habilitar RLS sem políticas BLOQUEIA tudo, inclusive os fluxos legítimos das torres. Precisa de plano por tabela.
+
+## Triagem por sensibilidade
+
+### 🔴 Alto risco (PII, dados de pessoas, contatos, magic sessions)
+- `cs_ra_lider_perfil` — cadastro CPF de líderes RA
+- `cs_ra_magic_sessions` — sessões de magic link (tokens)
+- `mgmt_magic_sessions` — sessões management
+- `agentes_entrega_contatos` — contatos
+- `ra_escalacao_contatos` — telefones diretoria/líderes
+
+### 🟠 Médio risco (dados operacionais sensíveis)
+- `cs_anomalias_detectadas`, `cs_previsoes` — análises preditivas
+- `cs_baixas_canonical` — 44k baixas
+- `cs_consolidacoes_aereas`, `cs_consolidacoes_rodoviarias` — consolidações
+- `ra_acionamentos`, `ra1000_health` — workflow RA
+- `ra_horario_envio`, `ra_notificacao_cliente`, `ra_dispatch_responses`, `ra_missing_data_requests` — RA1000
+- `cs_ra_etl_pending`, `cs_ra_sync_errors`, `cs_ra_emails_extras`
+- `parametros_economia` — parâmetros financeiros
+- `ai_recomendacoes_log` — log de recomendações IA
+- `cs_esl_audit_log` — auditoria ESL
+
+### 🟡 Baixo risco (catálogo, dimensões, dados públicos)
+- `etl_sources`, `etl_cursors` — catálogo ETL (lido pela TORRE — precisa permanecer legível)
+- `analytics_esl_hoje_28abr` — snapshot pontual
+- `cs_pessoas_pf`, `cs_pessoas_pj` — vazias hoje
+- `cs_grupos_logisticos`, `cs_grupos_logisticos_documentos` — vazias
+- `cs_regioes_entrega`, `cs_rotas_transporte`, `cs_veiculos` — vazias
+- `cs_esl_dimensions`, `cs_demandas_agendamento` — vazias
+- `cs_consolidacao_aerea_items`, `cs_consolidacao_rodoviaria_items` — vazias
+- `cs_minutas_aereas`, `cs_minutas_rodoviarias`, `cs_ctes_xml` — vazias
+- `cs_contas_receber`, `cs_contas_receber_items`, `cs_contas_pagar`, `cs_contas_pagar_items` — vazias
+- `cs_titulos_credito_manuais`, `cs_titulos_debito_manuais` — vazias
+- `cs_fretes_margens` — 11k linhas (margem por frete)
+- `cs_cubagens_log`, `cs_pod_log` — vazias
+- `mgmt_entidades`, `mgmt_fat_jc_staging`, `mgmt_manifestos_lo_staging`, `mgmt_reentregas_nextday_staging` — staging Torre Management
+- `cs_ra_evento_tipos`, `cs_ra_notification_rules` — config RA
+- `frt_manutencao_plano` — plano manutenção (11 linhas)
+
+## Plano de remediação (ordem sugerida)
+
+1. **Sprint 1 (DAEDALUS, semana 12-18/mai)**: Tabelas 🔴 (alto risco) — ativar RLS + criar política `authenticated` only para SELECT, `service_role` para writes. **Validar** que as torres ainda funcionam.
+2. **Sprint 2**: Tabelas 🟠 (médio) — mesma política base + filtros por filial onde aplicável.
+3. **Sprint 3**: Tabelas 🟡 (baixo) — RLS com SELECT público controlado para o que a TORRE realmente precisa ler como anon (ex: `etl_sources` lido por painel Saúde Dados).
+
+## Ação imediata recomendada (mas não auto-aplicada)
+
+DAEDALUS deve:
+- Inventariar quais tabelas a TORRE realmente lê via `anon key` (auditando o `fetchJson` de cada torre).
+- Para essas, criar política `CREATE POLICY anon_read ON <tabela> FOR SELECT USING (true)` antes de habilitar RLS — preserva o painel funcionando.
+- Para tabelas sem leitura via anon → habilitar RLS sem políticas (bloqueia tudo via anon, mantém service_role).
+
+**Why:** advisor explícito do Supabase em 10/05/2026; risco de exposição de PII (CPF dos líderes RA, contatos diretoria) via anon key embutida no JS público das torres. Sem RLS, qualquer pessoa que abra DevTools em zzyon.com pode ver o anon key e ler/modificar tudo.
+
+**How to apply:**
+- Tratar como pendência **bloqueadora Sprint 1 do DAEDALUS** junto com SUPABASE_KEY ativo, PM2 startup, OrbStack, git-crypt icaro-conselho.
+- NÃO rodar `ALTER TABLE ... ENABLE ROW LEVEL SECURITY` em massa — aplicar tabela por tabela com política antes.
+- Auditar com `SELECT tablename, rowsecurity FROM pg_tables WHERE schemaname='public' AND rowsecurity=false;` antes de cada deploy.
+- Quando concluir, atualizar esta memória com tabelas remediadas e remover do alto risco.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zyoncs_rls_pendencia.md</code></em></small>

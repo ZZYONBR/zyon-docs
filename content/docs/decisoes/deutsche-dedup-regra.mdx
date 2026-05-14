@@ -1,0 +1,26 @@
+---
+title: "Regra dedup Deutsche Cargo (Gol/Jadlog)"
+description: "Excluir Deutsche dos consolidados quando o mesmo movimento já está em filial Ícaro (evita duplicação por trecho aéreo)"
+---
+Quando Deutsche Cargo (filial `2.01 DEUTSCHE CARGO JOI`) envia carga via Gol ou Jadlog, o **mesmo movimento físico** também aparece em uma filial Ícaro (1.01 JOI, 1.02 SP, etc.) como trecho rodoviário origem/destino. Contar ambos infla volume e receita.
+
+**Why:** Deutsche é empresa do Grupo (não terceira) usada como etapa aérea — não como ponto de venda independente. O frete da Ícaro é a fonte da verdade comercial. A NF/CTe da Deutsche é só o trecho aéreo intermediário.
+
+**Fluxo aéreo real (esclarecido pelo CEO em abr/2026):**
+- Cia aérea (Gol, etc.) → factura → **Deutsche Cargo** (empresa do grupo, agente cargo aéreo)
+- Deutsche → intermedeia → Jadlog/Ícaro (entrega capilar terrestre)
+- AWB (Air Waybill) = conhecimento aéreo emitido pela cia aérea pra Deutsche
+- Por isso `cs_tracking_awbs` cobre só ~10-14% dos fretes (apenas os aéreos)
+- Os 86% restantes são rodoviários puros (cs_entregas_historicas direto, sem AWB)
+- **Implicação no enrich:** match por NF deve tentar (a) cs_tracking_awbs.nf_cliente — só pega aéreos; (b) fallback cs_entregas_historicas.nf — pega rodoviários. Já implementado em `ra-enrich-esl` v2.
+
+**How to apply:**
+- **RECEITA (FAT-JC)**: SEMPRE consultar `public.vw_fat_jc_deduzido` (criada 10/05/2026 — aplica a regra automaticamente sobre `mgmt_fat_jc_staging`). NUNCA `SELECT FROM mgmt_fat_jc_staging` direto em consumidor de receita.
+- Em qualquer view/consolidado de fretes (Torre, Briefing, OTD, Demanda, Cli360, Mapa Live, RA, Receita): aplicar regra `WHERE filial != '2.01 DEUTSCHE CARGO JOI' OR nf NOT IN (SELECT nf FROM cs_entregas_historicas WHERE filial LIKE '1.%')`
+- Quando NF aparece SÓ na Deutsche (sem trecho Ícaro), manter (caso atípico)
+- Aplicar consistentemente em: `vw_torre_master`, `vw_briefing_executivo`, `vw_otd_*`, `vw_demanda_semanal`, `mv_cli360_*`, `vw_mapa_live`, `vw_radar_atendente`, `vw_pendentes_*`
+- **Status atual abr/2026:** 626 fretes Deutsche em abril, 159 com NF em filial Ícaro entre fev–abr (3%) — match por NF subestima; regra deveria considerar `cte_chave` ou `esl_freight_id` também
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>deutsche_dedup_regra.md</code></em></small>

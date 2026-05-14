@@ -1,0 +1,39 @@
+---
+title: "HEFESTO — agente de Frota Operacional"
+description: "13º agente ZZYON, 5º vertical — gestão operacional de frota (TCO, manutenção, renovação, motoristas, alocação) complementando ROBERVAL (compliance documental)"
+---
+HEFESTO criado em 2026-05-09 como vertical de Frota Operacional, complementar a ROBERVAL. Esqueleto Python em `zyon-agents/hefesto/` (`__init__.py`, `orchestrator.py` stub com NotImplementedError, README com 12 seções padrão ATENA, `tools/`, `handlers/`, `prompts/`, `tests/`).
+
+**Por que existe:** ROBERVAL (LIVE em frota.zzyon.com) cobre só o lado documental — DETRAN, IPVA, AIT, CRLV, calendário licenciamento. O lado operacional (TCO, manutenção, renovação, performance motoristas, alocação por rota, POOL_CRÍTICO) ficou órfão, fragmentado entre Cidne (JOI), Luiz Ratti (SP/RJ/WHP), Donny (SP) e Jean Silva (custos). HEFESTO institucionaliza esse domínio.
+
+**Escopo:**
+- TCO por veículo (`TCO_Mensal = Combust + Manut + Seguro + Depr + IPVA/12 + Pneus`; `Custo/Km = TCO_Mensal/Km_Rodado_Mês`)
+- Manutenção preventiva e corretiva, MTBF
+- Plano de renovação (FIPE + valor baú: Foton/Iveco +R$50k, HR +R$30k, VM Trucado +R$80k)
+- Performance de motoristas (consumo km/L, eventos Autotrac, sinistros)
+- POOL_CRÍTICO 6 placas (SXP0A70, MJK6F06, SXP0A60, SXV2E90, SXX0A05, SXP0A90)
+- Alocação por rota cruzando TCO + disponibilidade + jornada AEGIS
+- Telemetria Autotrac (ingestão e indexação)
+
+**Não-escopo:**
+- Compliance documental → ROBERVAL
+- Jornada Lei 13.103 → AEGIS
+- Compras de pneus/peças → ATLAS (ou agente Compras futuro)
+- Folha motorista → HERA
+- Pagamento de multa → ROBERVAL → Jean Silva
+
+**Donos humanos:** Rubens (sponsor) · Cidne (JOI, `frota@icaroexpress.com`, +5547997571420) · Luiz Ratti (SP/RJ/WHP, `luiz.ratti@icaroexpress.com`, +5511944618661) · Donny (SP parcial) · Jean Silva (custos, `jean.silva@icaroexpress.com`, +5547999204979).
+
+**Stack:** Python 3.13 + FastAPI + Supabase + Anthropic + Langfuse, padrão `zyon-agents/`. Camada Vertical (5º). Roadmap S7-S9 (jun-jul/2026) — depois de ATLAS v1 (S3-4) e AEGIS v1 (S5).
+
+**Cross-agent:** consome ROBERVAL (status doc), AEGIS (jornada), TORRE (manifestos 90d), HERA (cadastro motorista), ATLAS (componentes de custo). Publica para ATLAS (TCO/Km), ATENA (disponibilidade), AEGIS (telemetria), TORRE (veículos parados >48h).
+
+**12 tools previstas:** 9 L1 (read-only — `tco_veiculo`, `disponibilidade_frota`, `manutencao_status`, `pool_critico_radar`, `dashboard_frota_consolidado`, `performance_motorista`, `plano_renovacao`, `alocacao_rota`, `ranking_consumo`); 3 L2 (`programar_preventiva`, `cobrar_motorista_drift`, `bloquear_viagem`); 1 L3 (`proposta_substituicao_veiculo`).
+
+**Why:** institucionaliza o lado operacional de frota antes não-tratado; libera ROBERVAL para foco documental; alimenta ATENA com disponibilidade real (input de OTD) e ATLAS com TCO consolidado (input de DRE filial e formação de preço). POOL_CRÍTICO deixa de ser zona cega.
+
+**How to apply:** ao tocar em TCO, manutenção, renovação, performance motorista, POOL_CRÍTICO ou alocação por rota — HEFESTO é a porta de entrada. Tudo que é DETRAN/IPVA/multa continua em ROBERVAL. Toda jornada Lei 13.103 continua em AEGIS. Qualquer compra de peça/pneu vira demanda de ATLAS. Quando reuso for possível, preferir as views já existentes em ROBERVAL: `vw_frt_placa_filial_dominante`, `fn_frt_route_alerta`, `frt_routing_rules`, `vw_frt_health`, `vw_frt_vencimentos`.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>hefesto_agente_frota_operacional.md</code></em></small>

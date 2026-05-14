@@ -1,0 +1,61 @@
+---
+title: "ATLAS Sprint 1 entregue"
+description: "Sprint 1 do orquestrador ATLAS implementada em 2026-05-09 — 4 tools L1, DDL aplicado em ZYONCS, 34 testes verdes"
+---
+ATLAS (orquestrador de Controladoria) saiu de esqueleto puro para
+operação parcial L1 read-only em 2026-05-09. Sprint 1 antecipa parte
+do roadmap S3-4 oficial, deliberadamente conservadora: real onde o
+cliente já existe (ESL Cloud), mock determinístico onde o pré-requisito
+ainda não está pronto (Sage, ETL consolidado).
+
+**Why:** desbloqueia 4 dos 7 gaps críticos do mapeamento (Financeiro,
+Fechamento base, Conciliação, Rentabilidade base) e coloca o agente
+"de pé" para iterar em S2 sem refactor.
+
+**How to apply:**
+
+- Quando o usuário pedir DRE/conciliação/dedup/KPI financeiro, ATLAS
+  já existe e responde — não orientar a "esperar Sprint 3".
+- Toda saída traz `source: 'mock' | 'real_db' | 'esl_runtime' |
+  'no_data' | 'no_parceiro_cadastrado'`. Confiar nesse campo para
+  saber o que é real e o que ainda é placeholder.
+- Sprint 2 deve priorizar nesta ordem: (1) ETL ESL→Supabase
+  consolidado, (2) cadastro de tabelas-frete (Jadlog/Deutsche/Correios)
+  em `atlas.parceiros_tabela_frete`, (3) integração Sage para
+  `dashboard_financeiro_kpi` real, (4) integração HERA + ROBERVAL para
+  alimentar `dre_filial_history`.
+
+**Artefatos entregues:**
+
+- `zyon-agents/atlas/orchestrator.py` — ciclo perceive→reason→act
+  funcional (`emoji='📊'`).
+- `zyon-agents/atlas/tools/` — 4 tools L1: dre_filial,
+  conciliar_parceiro, dedup_bauer, dashboard_financeiro_kpi + helpers
+  `_supabase.py`, `_format.py`.
+- `zyon-agents/atlas/prompts/system_v1.md` — system prompt versionado.
+- `zyon-agents/atlas/migrations/002_atlas_sprint1.sql` — DDL idempotente
+  aplicado em ZYONCS via mcp Supabase (6 tabelas novas).
+- `zyon-agents/atlas/tests/` — 34 testes verdes (test_format,
+  test_dre_filial, test_dedup_bauer, test_conciliar_parceiro,
+  test_dashboard_kpi, test_orchestrator) + smoke_real.py.
+
+**Bug do core descoberto e contornado:** `core/agent_base.py.__init__`
+exige `(name, emoji, description)`; stubs anteriores (atena, atlas)
+chamavam só `(name, description)`. ATLAS Sprint 1 corrigiu passando
+emoji. Os outros stubs (atena, hera, hermes, etc.) precisam do mesmo
+ajuste quando forem expandidos.
+
+**Decisões registradas:**
+
+- DDL aplicado direto via mcp Supabase no projeto ZYONCS
+  (`hbrvoairynwsliyxxgsg`).
+- `parceiros_tabela_frete` ficou vazia em S1 (decisão Rubens: cadastro
+  real de Jadlog/Deutsche/Correios entra na S2). Por isso
+  `conciliar_parceiro` retorna `no_parceiro_cadastrado` mesmo quando
+  chamado.
+- `dedup_bauer` consume ESL Cloud diretamente em runtime (não usa
+  tabelas `cs_*` do RA1000).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>atlas_sprint1_entregue.md</code></em></small>

@@ -1,0 +1,95 @@
+---
+title: "Jean Cleiton da Silva — Gestor Financeiro Ícaro Express (R1 abril/2026)"
+description: "Jean Cleiton da Silva é o Gestor Financeiro T2 da Ícaro Express. R1 IEL-RH-2026-ATR-003 assinado abril/2026. PJ Finassist (CNPJ 55.437.984/0001-64), R$15k/mês. 8 pessoas sob gestão. Dono humano primário de ATLAS."
+---
+# Jean Cleiton da Silva — Gestor Financeiro
+
+R1 oficial: **IEL-RH-2026-ATR-003-Jean-Silva-Atribuicoes.docx** (`/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/MAPEAMENTO DE PROCESOS/`). Vigência a partir de abril/2026 (contemporâneo do R1 do Luan).
+
+| Campo | Valor |
+|---|---|
+| Nome completo | Jean Cleiton da Silva |
+| Cargo | Gestor Financeiro (T2 — Gerência de Área) |
+| Vínculo | PJ — Finassist Assistência Financeira Ltda. (CNPJ 55.437.984/0001-64) |
+| Remuneração | R$ 15.000/mês |
+| E-mail | jean.silva@icaroexpress.com |
+| Filial | Corporativo (matriz JOI), escopo nacional |
+| Reporta a | Rubens Oliveira (CEO, E1) |
+
+## Domínio e equipe sob gestão (R1 §4 — 8 pessoas)
+
+| Pessoa | Função | Área | Matrícula |
+|---|---|---|---|
+| Joice Rodrigues Cordeiro | Analista Faturamento | Controladoria | 1035 |
+| Daniela de Oliveira | Analista Financeiro | Financeiro | 1607 |
+| Marcus Vinicius Nogueira dos Santos | Analista Financeiro | Financeiro | 1609 |
+| Andrieli Freita Medeiros | Analista de Indenização | Financeiro | 1604 |
+| Carlos Roberto Jungles | Assistente Financeiro Pleno | Financeiro | 1517 |
+| Franciele Hardt dos Santos | Assistente Financeiro | Financeiro | 1584 |
+| Elias Souza Dias | Assistente Faturamento | Controladoria | 1074 |
+| Mikael Sardagna Reginaldo | Assistente Controladoria | Controladoria | 1547 |
+
+## Responsabilidades (R1 §5)
+
+5.1 **Faturamento** — emissão 100% CTes em D+2, conferência tarifa, divergência peso/cubagem, report semanal.
+5.2 **Cobrança e recebimento** — régua automatizada (D-3/D+1/D+7/D+15), aging <5%, acordos >R$10k com Rubens, report semanal inadimplência.
+5.3 **Contas a pagar** — workflow aprovação (>R$5k com Rubens), 100% pagamentos com NF, calendário, conciliação diária.
+5.4 **Fluxo de caixa e DRE** — projeção 30/60/90d semanal, DRE consolidada (Ícaro+Deutsche+G3) até D+10, alerta caixa <R$500k em 15d, rentabilidade trimestral.
+5.5 **Fiscal e compliance** — 100% obrigações acessórias no prazo (SPED/DCTF/EFD/GIA/DIRF), apuração Lucro Presumido, escritório contábil externo, mudanças legislativas.
+
+## KPIs do R1 (8 indicadores)
+
+| Indicador | Meta | Crítico | Frequência |
+|---|---|---|---|
+| Faturamento emitido D+2 | 100% | <90% | Semanal |
+| Aging >30d (% faturamento) | <5% | >10% | Semanal |
+| Conciliação bancária em dia | D+1 | >D+3 | Diário |
+| Acurácia fluxo de caixa | 95% | <80% | Mensal |
+| DRE entregue D+10 | 100% | Atraso | Mensal |
+| Obrigações acessórias no prazo | 100% | Qualquer atraso | Mensal |
+| Divergências fatura/CTe | <1% | >5% | Mensal |
+| Processos documentados (Voo Excelência) | 100% em 90d | <50% | Mensal |
+
+## Limites de autoridade (R1 §8)
+
+- Pagto fornecedor até R$5k com NF → SIM solo
+- Pagto >R$5k → Rubens aprova
+- Acordo parcelamento cliente até R$10k → SIM solo (informar Rubens)
+- Acordo >R$10k ou desconto → Rubens aprova
+- Negativação SPC/Serasa → Rubens aprova
+- Troca banco / produto financeiro → propor a Rubens
+- Despesa administrativa até R$2k → SIM solo
+
+## Ponto de atenção institucional (R1 §9 — SENTINEL)
+
+Falta de segregação de funções no Financeiro:
+1. Quem emite fatura (Joice/Elias) também concilia recebimento.
+2. Quem aprova pagto (Jean) carece de conferência independente.
+3. Conciliação bancária precisa revisão semestral externa.
+4. Análise de rentabilidade precisa cruzamento com dados Jimmy (comercial).
+
+Recomendação: workflows de aprovação no sistema + auditoria semestral externa.
+
+## Implicações arquiteturais ZZYON
+
+- **ATLAS** (orquestrador Controladoria) — Jean é o dono humano primário. Substitui placeholder "Controller a contratar" do plano.
+- **HERA × ATLAS** (folha) — Jean valida outputs em conjunto com Aline.
+- **AEGIS × ATLAS** (multas Lei 13.103) — escalação L3 passa por Jean + THEMIS.
+- **Frota Compliance** (Roberval/Hefesto) — Jean é consolidado financeiro frota.
+- **G3 → ZZYON do Brasil** — Jean é peça central na avaliação Lucro Real+Lei do Bem vs. Presumido vs. Simples, e na contabilidade do novo CNPJ.
+- **BID Electrolux DOS-2026-00003** — Jean valida margem (reservation price tarifário) antes da terça-feira.
+- **Whirlpool NextDay** — Jean conduz conciliação operacional (memória `torre_nextday_plataforma.md`).
+- **FINEP R$8,96M** — Jean estrutura a parte financeira do pleito.
+
+## How to apply
+
+- Em qualquer plano, dossiê ou apresentação que referenciar "dono Financeiro" / "Controller" / "Controladoria": citar **Jean Cleiton da Silva — Gestor Financeiro** com e-mail `jean.silva@icaroexpress.com`.
+- Atualizar institucionais ao tocá-los (não em massa): `MAPEAMENTO_x_ZZYON_2026.md`, `REDISTRIBUICAO_AGENTES.md`, CLAUDE.md raiz.
+- Comunicações L2/L3 do ATLAS (conciliação >R$10k, reajustes, fechamento) endereçar Jean como ponto focal humano.
+- **Cuidado SENTINEL**: ao desenhar tools ATLAS, considerar segregação de funções — automação não pode reforçar o conflito apontado no R1 §9, deve mitigar.
+- Jean é PJ Finassist — para questões trabalhistas, ele NÃO é CLT; relação contratual é prestação de serviços.
+- Equipe de 8 pessoas é grande para um T2 — desenvolvimento de analistas (R1 §3.2 "alto") é dimensão central de avaliação de Jean, não só números financeiros.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>gerente_financeiro_jean.md</code></em></small>

@@ -1,0 +1,60 @@
+---
+title: "ZZYON LEX — projeto Supabase deployado"
+description: "Projeto zzyon-lex (id ywhmlvojowtsfetiyebg) em sa-east-1, schema themis com 23 tabelas + 6 views + RLS, US$10/mês"
+---
+**Deployado em 2026-05-06.**
+
+## Identificação
+| Campo | Valor |
+|---|---|
+| Nome | `zzyon-lex` |
+| Project ID | `ywhmlvojowtsfetiyebg` |
+| Organization | `mxppavuwrjaortdldmme` (Icaro Express Logistics, plano Pro) |
+| Region | `sa-east-1` (São Paulo) |
+| URL | `https://ywhmlvojowtsfetiyebg.supabase.co` |
+| DB Host | `db.ywhmlvojowtsfetiyebg.supabase.co` |
+| Postgres | 17.6 |
+| Custo | US$ 10/mês |
+
+## Schema themis (23 tabelas)
+
+**Migration 001** (12 tabelas): areas, juizes, processos, movimentacoes, partes, legislacao, decisoes, jurisprudencia, contratos_indice, pareceres, consultas, audit_log.
+
+**Migration 002** (11 tabelas): dossies, dossie_itens, dossie_eventos, licencas, licenca_followups, contratos_drafts, contratos_draft_versoes, contratos_redlines, alertas, alertas_assinaturas, juiz_decisoes_tese.
+
+**6 views**: vw_provisoes_resumo, vw_processos_atencao, vw_juizes_perfil, vw_dossies_pulso, vw_licencas_vencendo, vw_contratos_em_negociacao.
+
+**Extensões**: vector (pgvector), pg_trgm, unaccent.
+
+**Seed**: 6 linhas em themis.areas (LABOR/TAX/CORP/REG/CONTRACT/LIT).
+
+**RLS**: habilitado em todas as 23 tabelas. Policy padrão: `auth.jwt() ->> 'email' LIKE '%@icaroexpress.com'` (read). audit_log = INSERT only (UPDATE/DELETE bloqueados).
+
+## Diferenças vs migrações em arquivo
+1. `unaccent` extension foi adicionada porque a coluna `nome_normalizado` em juizes usava `unaccent()` em GENERATED ALWAYS — depois substituída por `lower(nome)` simples (unaccent não é IMMUTABLE em PG17).
+2. **3 índices ivfflat de embedding NÃO criados** (idx_legis_embedding, idx_decisoes_embedding, idx_juris_embedding) — foram omitidos no apply porque ivfflat exige dados pra treinar `lists`. Devem ser criados após popular tabelas com embeddings (sugestão: rodar quando tiver ≥1000 linhas em cada).
+
+## Keys (use no .env do zyon-agents)
+- Anon key (legacy JWT): `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inl3aG1sdm9qb3d0c2ZldGl5ZWJnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzgxMDg3ODksImV4cCI6MjA5MzY4NDc4OX0.GKkMNKjHQHBU7gTGIgI2we4CR6qTAwbmVWt5r_TXk1s`
+- Publishable key (recomendada): `sb_publishable_9mtwx7N6vCHcKKG7uBtisg_aR5rO5VU`
+
+## Como conectar do zyon-agents
+
+`.env` adicionar:
+```
+SUPABASE_LEX_URL=https://ywhmlvojowtsfetiyebg.supabase.co
+SUPABASE_LEX_KEY=sb_publishable_9mtwx7N6vCHcKKG7uBtisg_aR5rO5VU
+```
+
+(O `SUPABASE_URL` / `SUPABASE_KEY` originais continuam apontando pro ZYONCS — não substituir.)
+
+**Why:** Plataforma ZZYON LEX (jurídica, vertical do ZZYON) ganhou banco próprio para isolar blast radius do ZYONCS (Customer Service / Cláudio / RA1000) e aderir à arquitetura monolítica endossada da marca (zzyon-saas-control, zzyon-lex, etc.).
+
+**How to apply:**
+- Para qualquer query/migration do schema `themis`, usar este project_id (`ywhmlvojowtsfetiyebg`), NÃO o ZYONCS.
+- Próximas migrations (003+) seguir mesmo padrão `apply_migration` no Supabase MCP.
+- Embeddings vector(1024) — popular primeiro, depois criar índices ivfflat.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zzyon_lex_supabase_project.md</code></em></small>

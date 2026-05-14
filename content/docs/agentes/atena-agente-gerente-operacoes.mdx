@@ -1,0 +1,48 @@
+---
+title: "ATENA — Agente Gerente de Operações e Processos (criado 09/05/2026)"
+description: "12º agente do ecossistema ZZYON. Materializa o cargo de Gerente de Operações e Processos (T2) descrito no R1 do Luan/Loyalty. Cobre os 3 cenários do POS-001 (copiloto/assumir parcial/continuidade total)."
+---
+ATENA é o 12º agente do ecossistema ZZYON, criado em 2026-05-09 a pedido direto de Rubens. Localização: `zyon-agents/atena/` (esqueleto pronto, implementação começa Sprint 1 do roadmap geral 12-18/mai).
+
+**Codinome**: ATENA (deusa grega da estratégia, sabedoria prática, disciplina, artesania) — escolhido pelo padrão grego do panteão ZZYON e pela aderência ao princípio operante do R1 ("GERENCIAR, não EXECUTAR").
+
+**Camada**: Orquestrador (6º — junta-se a ATLAS, HERA, HERMES, THEMIS-LEX, TORRE).
+
+**Origem institucional**: três realidades simultâneas em maio/2026:
+1. R1 assinado abril/2026 (Luan/Loyalty) define cargo Gerente T2 com 14 KPIs e avaliação 90d
+2. POS-001 maio/2026 suspende reajuste +12% e vincula ao R1; revisão jul/2026
+3. Plano B (Cidne, Thais→Qualidade dez/2026, Gabriel SP) em estruturação para Cenário C
+
+**Cobertura dos 3 cenários do POS-001**:
+- Cenário A (Luan vira o jogo): ATENA é copiloto — gera reports semanais, prepara cobranças, pauta de 1:1
+- Cenário B (progresso parcial): ATENA assume fração crescente das atribuições T2
+- Cenário C (revisão da relação): ATENA é infraestrutura de continuidade para onboarding-assistido de COO interim/definitivo
+
+**Tools previstas (15 ao total)**:
+- L1 read-only: `analise_otd`, `radar_bottlenecks`, `dashboard_kpi_r1`, `performance_parceiros`, `sla_cliente`, `compliance_status_consolidado`, `pop_status`, `auditoria_executor_vs_gestor`
+- L2 com revisão humana: `cobrar_gestor`, `report_semanal_diretor`, `desenvolvimento_individual`, `triagem_decisao`, `plano_remediacao`, `escalonamento_diretoria`
+
+**KPIs do agente** (14 herdados do R1 + 6 próprios de gestão como agente):
+- Resultado: OTD nacional 95%, OTD SP 92,5%, jornada Lei 13.103 100%, devoluções <5%, sinistros >30d=0, parceiros 95% cada, compliance frota 100%, processos documentados 100% em 90d
+- Gestão (próprios): reports semanais 100%, latência detecção bottleneck ≤24h, aceitação reports ≥95%, % cobranças com resposta ≥85%, alertas pró-ativos ≥5/sem, # detecções "anti-R1" tendência ↓
+
+**Cadeia de comando**: Rubens (sponsor/L3) → Luan (copiloto Cenário A, valida cobranças L2) → ATENA → gestores locais (Natanael/Roberto/Coord.Frota JOI, Thais→Gabriel SP, Rafael CPQ, Davi RIO, Caroline compliance farma).
+
+**Integrações cross-agent**: TORRE (dados ESL), AEGIS (Lei 13.103), ATLAS (custos), HERA (turnover/certificações), ÍCARUS (NPS/RA), ROBERVAL (frota documental), SOFIA (Q&A processos), THEMIS/LEX (passivo trabalhista).
+
+**Why:** o R1 documenta o que o cargo PEDE; ATENA materializa em IA o que o cargo ENTREGA. Não é substituição do humano — é garantia de continuidade institucional. Em qualquer cenário do POS-001, a empresa não fica refém de uma única pessoa. O conhecimento dos processos, os KPIs do R1, a cadência de reports e cobranças passam a viver em sistema versionado e auditável.
+
+**How to apply:**
+- Toda decisão de design ATENA valida-se contra o R1; conflito = R1 vence.
+- Princípios não-negociáveis: gerenciar≠executar, resultado≠esforço, antecipar≠reagir, desenvolver≠substituir.
+- Cobranças (L2) sempre passam por Luan ou Rubens antes de chegar ao gestor local — ATENA não comanda diretamente humanos no Cenário A.
+- Reports semanais entregues sexta-feira sem falta — surpresa é falha estrutural.
+- ATENA NUNCA preenche planilha, confere carga, ou executa operação manual; se o tool sugere isso, redesenhar.
+- Não confundir com TORRE: TORRE é observatório (dashboards, alertas, scrapers); ATENA é o cérebro gerencial que opera SOBRE TORRE.
+- Pré-requisitos: SUPABASE_KEY ativo, AEGIS construído (S5), HERA construído (S6) — bloqueiam algumas tools.
+- Roadmap: S1 análise read-only; S2 reports+cobranças; S3 padronização+auditoria; S4-S5 compliance integrado; S6+ hardening Cenários B/C.
+- Revisão obrigatória após marco 30d do R1 (final maio/2026): ATENA está conseguindo prever os bottlenecks que Luan deveria estar prevendo? Se sim, Cenário A acelera. Se não, design precisa ajuste.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>atena_agente_gerente_operacoes.md</code></em></small>

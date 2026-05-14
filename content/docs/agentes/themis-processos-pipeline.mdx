@@ -1,0 +1,75 @@
+---
+title: "ZZYON LEX — pipeline de processos validado live"
+description: "Importer CSV/XLSX → themis.processos + sync_datajud cron 06h funcional; primeiro caso real (Vanilson TRT-12) cadastrado e sincronizado em 2026-05-06"
+---
+**Pipeline validado em produção 2026-05-06.**
+
+## Caso real piloto
+**Vanilson Dias Vieira × Ícaro Express (filial JOI)**
+- CNJ: `0000198-18.2026.5.12.0050`
+- Tribunal: TRT-12 · 5ª Vara do Trabalho de Joinville
+- Classe: Reclamação Trabalhista — jornada Lei 13.103 + doença ocupacional alegada
+- Polo: ré · Valor causa: R$ 180.000 · Provisão: R$ 90.000 · Risco: possível
+- 9 movimentações DataJud sincronizadas; última: "Petição" 2026-02-19
+- Documentos físicos em `/Users/rubens2/Desktop/12. JURIDICO/Processos/Processo trabalhista - VANILSON DIAS VIEIRA/`
+
+## Pipeline funcional
+
+```
+CSV/XLSX  →  themis.scripts.import_processos  →  themis.processos
+                                                     │
+                                                     ↓
+                              themis.scripts.sync_datajud (cron 06h)
+                                                     │
+                                                     ↓
+                              themis.movimentacoes (9 rows Vanilson)
+                                                     │
+                                                     ↓
+                              themis.alertas (delta detection)
+```
+
+## Como cadastrar mais processos
+
+```bash
+# 1. Criar/editar CSV (header em themis/data/processos_template.csv)
+cd zyon-agents
+cp themis/data/processos_template.csv themis/data/processos_2026.csv
+# editar processos_2026.csv
+
+# 2. Validar
+.venv/bin/python -m themis.scripts.import_processos themis/data/processos_2026.csv --dry-run
+
+# 3. Gravar (idempotente, upsert por numero_cnj)
+.venv/bin/python -m themis.scripts.import_processos themis/data/processos_2026.csv
+
+# 4. Sincronizar movimentações com DataJud
+.venv/bin/python -m themis.scripts.sync_datajud
+```
+
+## Inferências automáticas do importer
+- **tribunal** → do CNJ (TRT-12 do órgão 5 + tribunal 12, TJSC do órgão 8 + tribunal 24, etc.)
+- **tipo** → órgão CNJ (5=trabalhista, 8=cível, 4=tributário/federal)
+- **area_codigo** → órgão + heurística textual da classe
+- **filial_codigo** → CNPJ Ícaro (mapeado em `lib/cnpjs_icaro.py`)
+
+## Colunas obrigatórias
+- `numero_cnj` (com ou sem máscara)
+- `cnpj_icaro` (qualquer formato)
+
+## Bug fix gravado
+- `_to_float` no importer detecta automaticamente formato BR vs US:
+  - "1.234,56" → 1234.56 (BR — vírgula é decimal)
+  - "1234.56" → 1234.56 (US — ponto é decimal)
+- Sem essa heurística, "180000.00" virava R$ 18.000.000,00.
+
+**Why:** Rubens escolheu opção 1 (importar processos) como primeira frente após deploy. O caso Vanilson estava nas pastas físicas em `/Desktop/12. JURIDICO/Processos/` — usado como piloto live.
+
+**How to apply:**
+- Sempre validar com `--dry-run` antes de gravar.
+- O CSV `processos_template.csv` é só o cabeçalho; criar uma cópia com nome significativo (`processos_2026.csv`, `processos_trabalhistas.csv`) para preservar o template limpo.
+- Após import, rodar `sync_datajud` para puxar movimentações reais.
+- DataJud só funciona se o CNJ realmente existe nos tribunais — processos administrativos (CARF, ANTT, ANVISA) não têm CNJ; usar `numero_administrativo` separado.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>themis_processos_pipeline.md</code></em></small>

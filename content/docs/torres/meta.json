@@ -1,4 +1,18 @@
 {
   "title": "Torres",
-  "pages": ["saude", "ra", "frota", "controladoria", "cargas", "inbox", "briefing", "comercial"]
+  "pages": [
+    "cidine-gestor-frota-joi",
+    "frota-compliance-estado",
+    "frota-rollout-gestores",
+    "frota-routing-canonical",
+    "ra1000-acionamento-gestor-template",
+    "ra1000-automation-v2",
+    "ra1000-pipeline-completo",
+    "torre-analises-preditivas",
+    "torre-fontes-canonicas",
+    "torre-lex-frontend",
+    "torre-metas-operacionais",
+    "torre-nextday-plataforma",
+    "torre-usuarios-acesso"
+  ]
 }

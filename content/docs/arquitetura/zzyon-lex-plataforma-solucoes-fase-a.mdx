@@ -1,0 +1,69 @@
+---
+title: "ZZYON LEX — Plataforma de soluções Fase A (manual, sem IA)"
+description: "Detalhe do processo agora tem 4 painéis (Análise de risco/fato gerador · Pessoas RACI · Documentos · Plano de ação) com CRUD completo via UI; tudo manual; Fase B virá com IA preenchendo automaticamente"
+---
+**Deploy live em 2026-05-07.**
+
+## Migration 004 aplicada (5 tabelas novas + 1 view + RLS + GRANTs)
+
+| Tabela | Função |
+|---|---|
+| `themis.pessoas` | Cadastro de stakeholders (advogados internos/externos, RH, líderes filiais, diretoria, financeiro) |
+| `themis.processo_pessoas` | Atribuição RACI por processo (gestor / advogado / rh / operacional / financeiro / informado) |
+| `themis.processo_analise` | Análise de risco versionada: risco + justificativa + valores (condenação/acordo/provisão) + fato gerador + estratégia de defesa + flag `validado_por_advogado` |
+| `themis.processo_docs` | Checklist de documentos (categoria, prazo, responsável, status pendente/em_coleta/anexado/indisponivel/nao_aplicavel) |
+| `themis.processo_acoes` | Plano de ação (titulo, tipo, prioridade, prazo, status, responsável, resultado ao concluir) |
+
+View `vw_processo_panorama`: junta processo + análise validada + counts (pessoas, docs pendentes obrigatórios, ações abertas, próximo prazo).
+
+## Frontend novo
+
+`zzyon-platform/torre-lex/src/lex-processo-detalhe.js` (~600 linhas) — renderiza 4 painéis logo abaixo do header de cada processo:
+
+1. **Análise de risco e fato gerador** — cards com risco/condenação/acordo/provisão; campos texto para justificativa, fato gerador, estratégia. Cada salvamento incrementa `versao` (histórico). Disclaimer obrigatório quando `validado_por_advogado=false`.
+2. **Pessoas envolvidas (RACI)** — atribuir pessoas com responsabilidade. Form pode cadastrar pessoa nova inline.
+3. **Documentos para mitigação** — checklist com botão "⚡ Checklist trabalhista" que insere 12 documentos típicos (contrato, holerites, ASOs, PPP, CAT, manifestos motorista, EPIs, etc.).
+4. **Plano de ação** — tarefas com responsável, prazo, prioridade, status. Click "concluir" pede resultado e marca completa.
+
+## Padrão visual mantido
+- Modal genérico (`lex-modal.js`) com ESC/click backdrop
+- Botões `lex-btn-secondary` em bronze
+- Estilos auxiliares (`lex-form-grid`, `lex-key/lex-val`, `lex-table`, `lex-badge-*`) já existiam
+- Tudo no schema themis (mesmo Supabase zzyon-lex)
+
+## URL e bundle
+- https://lex.zzyon.com (200 OK)
+- Bundle: 281 KB JS / 10 KB CSS / 55 modules
+- Console limpo
+
+## Limites conhecidos da Fase A (anotados para Fase B)
+
+1. **Sem upload pro Storage** ainda — campo `arquivo_url` aceita link externo. Storage virá com Fase B.
+2. **Sem IA preenchendo** — tudo é digitado manualmente. Fase B vai oferecer "Analisar com IA" que lê PDF da petição e sugere risco/fato gerador/docs/ações.
+3. **Sem cruzamento operacional** — Fase C: para processo trabalhista de motorista, puxar diários de bordo + manifestos do período do ESL; pra avaria, puxar histórico do CTe. Schema já preparado (`fato_gerador_envolvidos JSONB`).
+4. **Pessoas globais, não por processo** — quando cadastra pessoa nova no atribuir, ela vai pra `themis.pessoas` (compartilhada). Pode reaproveitar em outro processo.
+5. **Histórico de análise** — `versao` incrementa, mas UI mostra só a mais recente. Fase B: tela de histórico mostrando evolução de risco ao longo do tempo.
+6. **Validação por advogado** — campo `validado_por_advogado` está no schema mas UI ainda não tem botão "validar". Fase B: botão no painel + envio de notificação WhatsApp.
+
+## Custo Anthropic
+**Zero** nessa fase. Sem chamadas LLM. Tudo é CRUD direto no Supabase.
+
+## Fluxo recomendado para o jurídico (próximos passos para Rubens)
+1. Entrar no Vanilson ou em qualquer dos 5 SP
+2. Painel **Pessoas** → cadastrar Aline Cavalcanti (RH), André Otavio Ossowski (advogado externo), Rubens (gestor)
+3. Painel **Análise** → preencher risco, valores estimados, estratégia
+4. Painel **Documentos** → clicar "⚡ Checklist trabalhista" para popular 12 docs típicos, depois atribuir responsáveis
+5. Painel **Plano de ação** → "Coletar holerites com RH (prazo X)", "Reunião estratégia com Ossowski (prazo Y)", etc.
+
+Tudo idempotente, tudo auditável (timestamps + criado_por_email), tudo versionado (no caso da análise).
+
+**Why:** Rubens pediu plataforma completa de soluções. Fatiamento incremental: Fase A monta o esqueleto manual primeiro (4-5h, custo IA = 0). Fase B virá depois trazendo IA pra preencher automaticamente o que hoje é manual. Permite o jurídico já operar agora enquanto a Fase B é construída.
+
+**How to apply:**
+- Toda futura fase (B/C/D/E) PRECISA usar essas 5 tabelas. Não criar paralelas.
+- Fase B (IA): grava em `processo_analise` com `origem='agente_ia'` e `validado_por_advogado=false`. Frontend já bloqueia uso financeiro até alguém clicar validar.
+- Cuidado com produção: `processo_analise.valor_provisao_recomendado` é input pra DRE. Sempre disclaimer + flag de validação.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zzyon_lex_plataforma_solucoes_fase_a.md</code></em></small>

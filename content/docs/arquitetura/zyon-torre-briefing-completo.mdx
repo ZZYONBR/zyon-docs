@@ -1,0 +1,211 @@
+---
+title: "ZYON / Torre de Controle — Briefing Completo"
+description: "Contexto-mestre da Torre Ícaro + arquitetura ZYON (12 agentes) + princípios + brand + pessoas-chave + clientes-âncora + classificação C1-C5 + FINEP + metas"
+---
+# ZYON & Torre de Controle — Contexto Mestre Ícaro
+
+## Holding e empresas operacionais
+
+| Empresa | Descrição | Confidencial? |
+|---|---|---|
+| Ícaro Express Logistics Ltda. | Transporte rodoviário geral | OK público |
+| **Deutsche Cargo do Brasil** | Farmacêutico, isenção judicial ANVISA Despacho 168/2025 | OK público |
+| G3 Serviços | — | OK público |
+| RGO Participações | Holding | **NUNCA citar externamente** |
+| ICARO EXPRESS LLC (Florida) | Operações 2027 | OK público |
+
+## 🔴 Regras de comunicação pública (críticas)
+
+- **NUNCA citar "Grupo RGO"** externamente
+- **NUNCA citar receita**
+- Posts em **primeira pessoa do plural**
+- Aline sempre referenciada na história de fundação
+- **Sem emojis em produtos finais** — usar Lucide React
+
+## 🎨 Identidade visual
+
+| Elemento | Valor |
+|---|---|
+| Azul institucional | `#122149` |
+| Dourado | `#B9892D` |
+| Cinza | `#464547` |
+| Tipografia institucional | Zurich BT |
+| Tipografia web | DM Sans |
+| Ícones | Lucide React (NÃO emojis) |
+
+## Arquitetura ZYON — 12 agentes
+
+### 3 Agentes principais
+| Agente | Função | Canal |
+|---|---|---|
+| **ROBERVAL** | Assistente executivo do Rubens. Agenda, e-mails, briefing matinal, consultas TMS, BMW, alertas | WhatsApp pessoal Rubens |
+| **IZA** | Atendimento ao cliente. Rastreio, tickets, atrasos. Cliente nunca sabe que é IA | WhatsApp corporativo Ícaro |
+| **CLAUDIO** | Especialista RH + legislação trabalhista (Lei 13.103, 11.442, CCT). RAG jurídico. Integrado Ahgora (a541526) e Autotrac | Interno + WhatsApp gestores |
+
+### 6 Sub-agentes especializados
+| Sub-agente | Função |
+|---|---|
+| **ATLAS** | Análise dados operacionais (SLA, OTD, ocorrências, bonificação TAC) |
+| **ORACLE** | Previsão demanda, projeção financeira, cenários (consultor IA, chat livre) |
+| **AUDITOR** | Compliance fiscal e trabalhista automatizado |
+| **SENTINEL** | Monitoramento SLA por carrier (alerta Slack abaixo threshold) + segregação funções |
+| **KAIZEN** | Classificação processos: manter / aprimorar / eliminar / automatizar |
+| **NEXUS** | Plano ação waves/sprints + diesel ANP + surcharge |
+
+### Orquestrador
+**ZYON Orchestrator** — cérebro central. Correlaciona eventos cross-departamento (avarias SP + turnover SP → plano integrado). Princípio de **autonomia gradual**: começa em "monitorar e sugerir", ganha capacidade de ação direta conforme acurácia. **Ações > R$10K ou irreversíveis sempre passam por aprovação humana.**
+
+### As 7 regras de ouro da separação dos agentes
+1. Processos separados, servidor único (Docker Compose)
+2. System prompts distintos por agente
+3. Banco com schemas separados (PostgreSQL: schemas `roberval`, `iza`, `corporativo`, `shared`)
+4. Credenciais isoladas (tokens OAuth, sessões WhatsApp, API keys nunca compartilhados)
+5. Comunicação via Redis Pub/Sub (eventos)
+6. Tools nunca compartilhadas
+7. Logs centralizados mas segregados por namespace
+
+## Stack técnica Torre
+
+- **Servidor:** Mac Mini M4 (16GB RAM) self-hosted
+- **Frontend:** Next.js 14 (App Router) + Tailwind + shadcn/ui — `localhost:3000`
+- **Backend:** Supabase Self-Hosted via Docker — Kong `localhost:8100`, Postgres `localhost:5433`
+- **WhatsApp:** Evolution API — `localhost:8000`, instância `icaro-claudio`
+- **Browser persistente:** Chromium container + noVNC (sessões ESL e RA logadas; via CDP)
+- **Automação Python:** `/Users/rubens/ROBERVAL/` — Playwright RA + ESL, sync Google Sheets
+
+### Conflitos de porta resolvidos
+- `5432` → ocupada Postgres Evolution → Supabase usa `5433`
+- `8000` → ocupada CLAUDIO → Supabase Kong usa `8100`
+- Senhas Postgres: `openssl rand -hex` (não base64)
+- Reset volumes Supabase: `rm -rf volumes/db/data` (bind mounts)
+
+## Múltiplos projetos Supabase
+
+| Nome | URL |
+|---|---|
+| ZYON.FISCAL | `wbnresvkahueifuscvft.supabase.co` |
+| LASTMILE SAO | `lyilzvdlvashdxwrttmw.supabase.co` |
+| **Torre / Gollog Pipeline** | `hbrvoairynwsliyxxgsg.supabase.co` ← projeto atual |
+
+**Nunca colar chaves** (anon, service_role, Anthropic) em chat/docs. Usar `.env.local`, Supabase Vault, ou `read -s` no terminal. Chaves expostas em conversas anteriores devem ser consideradas revogadas.
+
+## Pessoas-chave (correções importantes!)
+
+| Pessoa | Papel | Email |
+|---|---|---|
+| **Aline Oliveira** | Sócia-fundadora, lidera RH | aline.cavalcanti@icaroexpress.com |
+| **Rubens Oliveira** | Diretor Executivo (CEO) | rubens@icaroexpress.com |
+| **Jean Silva** | Gerente Financeiro | jean.silva@icaroexpress.com |
+| **Franciele** | Supervisora Financeira | financeiro02@icaroexpress.com |
+| **Jimmy** | Líder de Operações | (nas listas anteriores) |
+| **Silvana dos Santos** | Líder CS (4 células sob ela) | silvana.santos@icaroexpress.com |
+| **Hélio** | **TI** (NÃO Diretoria — corrigir memória anterior) | helio@icaroexpress.com |
+| **Thais Heiler** | Comando SP até dez/2026, depois JOI Gestora Qualidade | thais@icaroexpress.com |
+| Prof. Jeferson Marcelo | Consultor RH (desde fev/2026) | externo |
+| Caroline de Souza | Farmacêutica CRF/SC 7490, CLT Deutsche + Ícaro | regulatorio@icaroexpress.com |
+| Luan Vidal | Gerente Operações (PJ) | luan.vidal@icaroexpress.com |
+| Ana Paula Pereira | RH PJ (contrato encerrado fev/2026) | — |
+
+### Células de CS (4 células sob Silvana)
+- **Whirlpool exclusivo:** Marceli + Ricardo
+- **Carteiras dedicadas:** Carlos, Raimunda, Kevin, Bianca
+- **Liderança + C1 críticos:** Silvana
+
+## Clientes-âncora (não citar Haier publicamente)
+
+Whirlpool (contato Tibor) · Intelbras · Pichau · Bagaggio · Newell Brands · FGM · Envista · Terabyte · Bühler · Britania · Ventisol · L'aquila · Oster · Cadence · Kulzer · Geistlich · Philco · Nidec · Electrolux (contato Wellington) · **Haier (NÃO citar publicamente)**
+
+## Sistemas externos
+
+| Sistema | Endereço |
+|---|---|
+| TMS ESL Cloud | `https://icaro.eslcloud.com.br/` (tenant: `icaro`) |
+| Ahgora (ponto) | código `a541526` |
+| Autotrac | rastreamento + jornada motorista |
+| ZapSign | assinatura digital |
+| Sompo Seguros | seguro de carga |
+| Risk managers | Raster, Opentech |
+| Google Sheets ref | `1Bo7gxA1FYbm2AJ4Jp2sDezePQ92S78yR` |
+
+## Pipeline Gollog Escalation (recém-construído)
+
+- Edge Function: `send-gollog-escalation`
+- Vault: `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `GOOGLE_REFRESH_TOKEN`, `GMAIL_USER`
+- OAuth client: `ZYON Supabase Callback` (App Web, conta `icaroexpress@gmail.com`)
+- Redirect URI: `https://hbrvoairynwsliyxxgsg.supabase.co/functions/v1/google-oauth-callback`
+- Tabela log: `tracking.gollog_email_log` (ID Gmail por envio; reenvio = "Nível 2", 24h depois)
+- **Modo seguro: `test_email`** redireciona tudo para `icaroexpress@gmail.com` com banner "🧪 MODO TESTE" listando destinatários reais
+- Destinatários produção: TO Ewerson, CC atendentes (KEVIN, CARLOS, RAIMUNDA, BIANCA, MARCELI/RICARDO Whirlpool exclusivo)
+
+## Classificação C1-C5 (RA / Atendimento)
+
+| Nível | Critério | SLA 1ª resposta | Quem trata |
+|---|---|---|---|
+| **C1** | Premium (Whirlpool/Intelbras/Bagaggio/Newell) **OU** reincidente **OU** ameaça judicial/PROCON | **30 min** | Silvana + célula |
+| **C2** | Avaria expressiva, extravio confirmado, atraso > 10 dias | 1h | Célula do cliente |
+| **C3** | Atraso normal (1-9 dias), ausência, endereço, reentrega | 4h úteis | Célula do cliente |
+| **C4** | Dúvida, solicitação, protocolo | 4h úteis | Qualquer agente |
+| **C5** | Improcedente, já resolvida, duplicada | 8h úteis | Qualquer agente |
+
+## Skills customizadas (em `/mnt/skills/user/`)
+
+`analise-de-frete` · `icaro-express-docs` · `zyon-dev` · `rh-juridico-clt` · `salah-shriners` · `personal-social-media` · `posicionamento-estrategico` · `denza-b5` · `torre-de-controle` · `proposta-comercial-premium` · `relatorio-performance-cliente` · `gestao-de-crise-logistica` · `inteligencia-competitiva` · `thought-leadership` · `rastreamento-jadlog`
+
+## Princípios de desenvolvimento ZYON
+
+1. **AI-native, não AI-bolted** — agentes são primeira classe, não acessório
+2. **Server-side keys only** — nunca expor `ANTHROPIC_API_KEY` ou `service_role` no client
+3. **RLS no Supabase** — toda tabela com policy por perfil
+4. **Logs de auditoria** — quem alterou, quando, o quê
+5. **Multi-tenant ready** — schemas separados, RLS robusto (visão FINEP/SaaS)
+6. **Sem emojis em UI final** — Lucide React
+7. **Brand consistente** — Azul `#122149`, Dourado `#B9892D`, Cinza `#464547`, DM Sans
+8. **Português técnico claro** — UI em pt-BR, código em inglês
+
+## FINEP — Subvenção R$ 8,96M
+
+Pleito de **R$ 8,96M** em subvenção para **ZYON 2.0** como inovação nacional. Objetivo: transformar Ícaro Express em empresa de tecnologia + ZYON como SaaS vendável para outras transportadoras. Submissão prevista **set/2026**.
+
+## Metas North Star (mar/2027)
+
+| Indicador | Meta |
+|---|---|
+| ARR | R$ 100M |
+| SLA médio | 95%+ em todos carriers |
+| NPS | > 70 |
+| Resolução autônoma IZA | 85% |
+| Clientes externos ZYON SaaS | 1+ |
+| Followers LinkedIn Rubens | 10.000 qualificados |
+
+## Tarefas atuais da Torre (a fazer)
+
+### 8.1 Logo fundo escuro ✅ FEITO (deploy Vercel torre-vercel)
+
+### 8.2 Reordenar colunas da grid principal (21 colunas)
+```
+1. Prioridade · 2. AWB/CT-e · 3. NF Cliente · 4. Pagador · 5. Destinatário
+6. Cidade Destino · 7. UF · 8. Região · 9. Data Frete · 10. Prazo
+11. Previsão · 12. Status · 13. Última Ocorrência · 14. Data Ocorr.
+15. Dias Venc. · 16. Próxima Ação · 17. Atendente · 18. CT-e 3º
+19. NF Interna · 20. Transportadora · 21. Quem Entrega
+```
+
+### 8.3 Exportação Excel (.xlsx) com identidade Ícaro
+- Botão "Exportar Excel" na grid
+- Lib: SheetJS (xlsx) no client OU Edge Function
+- Mesma ordem das colunas 8.2
+- Cabeçalho: azul `#122149` background, texto branco, dourado `#B9892D` no rodapé
+
+## How to apply (regras críticas)
+
+- **Hélio = TI**, não Diretoria (correção memória anterior)
+- Em comunicações públicas: nunca citar Grupo RGO, receita, ou Haier
+- Brand colors fixas: `#122149` / `#B9892D` / `#464547`
+- UI: Lucide React (sem emoji)
+- Sempre RLS + auditoria
+- Server-side keys only — nunca expor anon/service_role no HTML
+- Princípio AI-native: cada feature pensa "como IZA/ATLAS/ORACLE poderia tratar isso?"
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zyon_torre_briefing_completo.md</code></em></small>

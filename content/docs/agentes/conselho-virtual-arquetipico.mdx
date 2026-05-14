@@ -1,0 +1,79 @@
+---
+title: "Conselho Virtual Arquetípico (4ª camada ZZYON)"
+description: "5 agentes IA simulando arquétipos de empresários públicos (MUSK/BUFFETT/GATES/MITTAL/JOBS) para sparring intelectual privado de Rubens. Esqueleto criado 09/05/2026. Uso interno reservado, output não-citável externamente."
+---
+Camada nova do ecossistema ZZYON criada em 2026-05-09 a pedido de Rubens. Localização: `zyon-agents/conselho-virtual/`.
+
+**Posição na arquitetura ZZYON** (agora 4 camadas):
+1. **Operacional grego** (12 agentes): ATENA, ATLAS, HERA, HERMES, THEMIS/LEX, TORRE, AEGIS, COSMOS, ÍCARUS, SOFIA, CLÁUDIO, ROBERVAL
+2. **Governança institucional Sahaba** (2 agentes): MOHAMED (CEO), ABOOBAKAR (Conselho real)
+3. **Conselho Virtual Arquetípico** (5 agentes — NOVO): MUSK, BUFFETT, GATES, MITTAL, JOBS
+
+**Os 5 arquétipos**:
+- **MUSK** — operador / engenharia agressiva / primeiro princípio (Tesla, SpaceX, vertical integration)
+- **BUFFETT** — alocador / capital paciente / value investing (Berkshire, margem de segurança)
+- **GATES** — arquiteto / plataforma / longo prazo (Microsoft, software como leverage)
+- **MITTAL** — frugal / custo radical / escala (ArcelorMittal, eficiência aço)
+- **JOBS** — narrador / marca / posicionamento premium (Apple, foco no detalhe)
+
+Cobrem 5 eixos: operação, capital, estratégia, custo, marca.
+
+**3 proteções obrigatórias** (decidido com Rubens em 09/05/2026):
+1. Cabeçalho "USO INTERNO RESERVADO" em todo material
+2. Disclaimer no system prompt: "simulacro inspirado em <nome>, não representa pessoa real, output não citável externamente"
+3. Script `sanitizar_export.py` substitui nomes públicos por arquétipos genéricos (MUSK→OPERADOR_TEC, BUFFETT→ALOCADOR_CAPITAL, GATES→ARQUITETO_PLATAFORMA, MITTAL→FRUGAL_OPERACIONAL, JOBS→NARRADOR_MARCA) antes de qualquer export externo
+
+**Princípios LEIA TRÊS VEZES** (no README mestre):
+1. OPINIÃO, NUNCA DECISÃO — opinam, Rubens decide
+2. SIMULACRO, NÃO PESSOA REAL — não citável externamente
+3. USO INTERNO RESERVADO — nunca sai sem cabeçalho de classificação
+4. NÃO PUBLICAR, NÃO COMPARTILHAR — não vai para e-mail, WhatsApp, redes, cliente, banco, FINEP
+
+**Modos de uso**:
+- **Rodada de Mesa**: 5 vozes paralelas a 1 pergunta — `convocar_conselho.py` (Sprint 1)
+- **Sparring 1:1**: chamada individual de um arquétipo — `sparring.py` (Sprint 1)
+- **Estruturação**: saída em formato cenário A/B/C com votação simbólica
+
+**Estrutura criada**:
+```
+zyon-agents/conselho-virtual/
+├── README.md (mestre, 11 seções, princípios LEIA TRÊS VEZES)
+├── .gitignore agressivo (sessões, exports raw, _classified)
+├── musk/{README, prompts/system-prompt.md, _classified/.gitkeep}
+├── buffett/[mesma estrutura]
+├── gates/[mesma estrutura]
+├── mittal/[mesma estrutura]
+├── jobs/[mesma estrutura]
+└── scripts/
+    ├── convocar_conselho.py (stub — Sprint 1)
+    ├── sparring.py (stub — Sprint 1)
+    └── sanitizar_export.py (lógica funcional, sem dependência API)
+```
+
+**Custo estimado** (Anthropic API):
+- Sonnet 4 sparring 1:1: ~$0.05/sessão de 30min
+- Opus 4.6 rodada de 5: ~$0.40/sessão
+- Mensal: ~$5-10 para uso típico
+
+**Why:** Rubens precisa de contraditório de qualidade antes de decisões estratégicas importantes (BIDs grandes, M&A, capex maior, posicionamento). Conselho real está em formação (ABOOBAKAR como secretaria executiva, mas sem conselheiros humanos confirmados ainda). Conselho Virtual cobre essa lacuna com 5 lentes complementares, sem comprometer governança real (ABOOBAKAR continua sendo o sistema institucional). Custo desprezível, valor estratégico alto.
+
+**How to apply:**
+- **NUNCA citar nomes reais (Musk, Gates, etc.) externamente** — só MUSK/BUFFETT/etc. em export sanitizado, ou os 5 arquétipos (OPERADOR_TEC etc.) em qualquer material que pode vazar.
+- **NÃO confundir** com ABOOBAKAR (conselho real, juridicamente válido, repositório `icaro-conselho/`).
+- **NÃO confundir** com MOHAMED (CEO) — MOHAMED sintetiza dados internos para Rubens decidir; Conselho Virtual provoca contraditório intelectual sobre ESSA decisão.
+- **Output dos 5 não vai para Git** — `.gitignore` bloqueia `sessoes/`, `*.sparring.md`, `exports-raw/`. Apenas saída sanitizada (`*.sanitized.md`) pode ser versionada se necessário.
+- **Quando os 5 concordarem** = caminho provável certo OU todos têm mesmo cego (validar com humano externo).
+- **Quando os 5 divergirem** = decisão genuinamente difícil — Rubens decide consciente.
+- **Implementação real**: aguarda Sprint 1 do roadmap conselho-virtual (depois de pré-requisitos: SUPABASE_KEY ativo + decisão modelo Sonnet 4 vs Opus 4.6 + schema Supabase para sessões).
+- **Validar system prompts** com Rubens nas primeiras sessões reais — refinar tom, foco, vieses.
+- **Inspiração nominativa real (motivos pessoais de Rubens)** documentada em `_classified/inspiracao.md` em cada subpasta — gitignored, uso pessoal apenas.
+
+**Pré-requisitos para Sprint 1**:
+- SUPABASE_KEY ativo (bloqueado, junto com outros agentes)
+- Decisão modelo: Sonnet 4 (sparring rápido) + Opus 4.6 (rodada profunda)
+- Schema Supabase: `conselho_virtual_sessoes`, `conselho_virtual_perguntas`, `conselho_virtual_respostas`
+- Setup Langfuse para observabilidade
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>conselho_virtual_arquetipico.md</code></em></small>

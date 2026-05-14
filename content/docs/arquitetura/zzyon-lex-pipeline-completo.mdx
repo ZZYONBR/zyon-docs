@@ -1,0 +1,87 @@
+---
+title: "ZZYON LEX — pipeline LLM end-to-end validado em produção"
+description: "Em 2026-05-07 fechado o ciclo completo do orchestrator: Haiku triagem → Opus paralelo → consolidação → persistência; primeiro parecer multi-agente real (LABOR+LIT) gravado no banco"
+---
+**Validação live em produção 2026-05-07 (Mac mini).**
+
+## Caso de teste
+Pergunta: "Posso descontar do salário do motorista o valor da avaria que ele causou na carga, sem instaurar processo administrativo prévio? Se sim, qual o limite legal e quais documentos preciso ter em mãos?"
+
+## Resultado real
+
+### Triagem (Haiku 4.5)
+- Áreas detectadas: **LABOR + LIT** (multi-disciplinar — confiança 0.95)
+- Justificativa: "Questão sobre desconto salarial (LABOR) com risco de litígio (LIT) por violação de direitos trabalhistas e CDC"
+
+### Despacho (Opus 4.7 — paralelo via asyncio.gather)
+| Agente | Tokens IN | Tokens OUT |
+|---|---:|---:|
+| themis-labor | 1.543 | 3.194 |
+| themis-lit | 1.762 | 3.129 |
+| themis-orchestrator (consolidação) | 3.305 | 6.323 |
+| **Total** | **6.610** | **12.646** |
+
+### Métricas
+- Duração total: 187,5s (~3 min)
+- Custo aproximado: **US$ 1,04** por consulta multi-agente Opus
+- Modelo: claude-opus-4-7 em todos
+
+### Persistência (validada no Supabase ZZYON LEX)
+- `themis.consultas` — 1 entrada (id 99c8eacc-26c2-4aaf-9eb6-63c86c2ed266)
+- `themis.pareceres` — 3 entradas (labor + lit + orchestrator/consolidador)
+- `themis.audit_log` — 1 entrada (acao = consulta_juridica)
+- Disclaimer aplicado automaticamente em todas as saídas
+
+### Qualidade do parecer
+O consolidador citou:
+- CLT art. 462 caput + §1º (transcrição exata)
+- Súmula 342 TST
+- OJ-SDI1-251 TST
+- Jurisprudência específica TRT-12 (Joinville/SC)
+- Tabela comparativa dolo × culpa
+- Valores típicos de dano moral local (R$ 3-15k)
+- Limite prático 30% remuneração líquida
+- CCT SETCESC
+- Documentação obrigatória (CAT, termo, defesa, prova oitiva, decisão fundamentada)
+
+## Onde rodar
+
+⚠️ **NÃO rodar localmente do MacBook Pro** — Bash tool sandbox bloqueia acesso ao `.venv/bin/` quando o cwd é resetado por subagent. Usar Mac mini via SSH (que também é prod):
+
+```bash
+ssh rubens@100.65.23.99 'cd ~/zyon-agents && .venv/bin/python -m themis.tests.smoke_orchestrator'
+```
+
+Tempo de execução: ~3 minutos por consulta multi-agente.
+
+## Custos por tipo de consulta
+
+| Tipo | Agentes | Custo aprox |
+|---|---|---|
+| Pergunta uni-disciplinar | 1 agente, sem consolidação | ~US$ 0,30 |
+| Pergunta bi-disciplinar | 2 agentes + consolidação | ~US$ 1,00 |
+| Pergunta tri-disciplinar | 3 agentes + consolidação | ~US$ 1,40 |
+
+(Estimativa baseada em ~5k tokens IN + ~3k tokens OUT por agente Opus.)
+
+## Bug menor identificado (não bloqueante)
+Pipeline gravação atual é all-or-nothing: se a consolidação falhar, NENHUM parecer
+é gravado (apesar dos individuais terem respondido). Idealmente, gravar pareceres
+individuais ANTES de tentar consolidar. Anotado como melhoria fase 2.
+
+**Why:** Rubens recarregou conta Anthropic em 2026-05-06 para fechar o ciclo LLM.
+Pipeline já estava todo cabeado; só faltava o LLM responder. Smoke test foi
+executado direto do Mac mini (prod) e gravou no Supabase ZZYON LEX.
+
+**How to apply:**
+- Pipeline LLM está validado em produção. Pode ser usado pelos advogados/diretoria
+  via CLI `python -m themis.scripts.ask "pergunta"` quando precisarem.
+- O orchestrator é o mesmo path do CLI — toda consulta roda como o smoke test.
+- Para frontend `lex.zzyon.com`, a chamada vai vir via API/edge function que
+  invoca o orchestrator e retorna o parecer (mesma persistência).
+- Para evitar custo desnecessário, sempre triar com Haiku PRIMEIRO (já implementado
+  no orchestrator).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zzyon_lex_pipeline_completo.md</code></em></small>

@@ -1,0 +1,106 @@
+---
+title: "BID Electrolux CD Itapeva 2026 — dossiê DOS-2026-00003"
+description: "Concorrência 002/2026 com 9 redlines (5 bloqueadores), draft persistido no LEX, 3 docx no Desktop e plano de 10 ações"
+---
+**Dossiê aberto em 2026-05-08.**
+
+## Identificação
+| Campo | Valor |
+|---|---|
+| Dossiê código | `DOS-2026-00003` |
+| Dossiê id | `70113a90-ae25-47f9-9464-3cf1f5d3cff0` |
+| Contrato draft id | `5f0bfe5a-3e73-41aa-95d3-99f4dc64f275` |
+| Versão atual id | `92be15ea-5ffe-4710-8e9e-e2627da8b53c` |
+| Status | `em_negociacao` (prioridade alta) |
+| Contraparte | Electrolux do Brasil S.A. (CNPJ 76.487.032/0001-25) |
+| Filial Ícaro | JOI (matriz) |
+| Volume estimado | R$ 1M/mês · R$ 12M/ano |
+| Exposição máxima | R$ 19M/ano (158% do faturamento) |
+| Prazo finalização | 30 dias |
+
+## 9 redlines persistidos em `themis.contratos_redlines`
+
+| # | Cláusula | Tema | Severidade |
+|---|---|---|---|
+| RL-01 | 8.2 | Responsabilidade ilimitada | alta (BLOQUEADOR) |
+| RL-02 | 10.1.b | Multa 50% × últimos 12 pagamentos | alta (BLOQUEADOR) |
+| RL-03 | 2.2 | Pagamento 90 dias (proposta: 45d ou risco sacado) | alta (BLOQUEADOR) |
+| RL-04 | 2.10 | Vedação de cessão a factoring | alta (BLOQUEADOR) |
+| RL-05 | Anexo II | SLA sem cláusula de força maior | alta (BLOQUEADOR) |
+| RL-06 | Quadro × 7.1 | Conflito interno subcontratação | media (CONFLITO) |
+| RL-07 | 14.8.3 | Multa 100% por ocorrência (auditoria) | media (NEGOCIÁVEL) |
+| RL-08 | Quadro + 13.1 | Sem reajuste + redução compulsória 3%/ano | media (NEGOCIÁVEL) |
+| RL-09 | 20.1 | Foro Curitiba sem mediação prévia | media (NEGOCIÁVEL) |
+
+Todos com origem `themis-contract` e status `proposto`. Schema completo em `themis_contratos_redlines` (colunas: trecho_original, trecho_sugerido, justificativa, base_legal[], severidade, categoria, status).
+
+## Pessoas cadastradas em `themis.pessoas`
+
+| Pessoa | Papel | Organização |
+|---|---|---|
+| Wellington Lima | externo | Electrolux (comercial — ponto focal BID) |
+| Pedro Moises | externo | Electrolux (operacional — dúvidas técnicas) |
+| Rubens Oliveira | diretoria | Ícaro Express |
+| André Otávio Ossowski | advogado_externo | Ossowski Advogados |
+| Caroline de Souza | outro | Ícaro Express (CRF/SC 7490) |
+
+## 3 documentos no Desktop `/2. CLIENTES/Electrolux/`
+
+1. `MINUTA - CONTRATO DE PRESTAÇÃO DE SERVIÇOS DE TRANSPORTE - BID CD ITAPEVA.docx` — original Electrolux (1.7 MB, 1617 parágrafos, intacto)
+2. `MINUTA-Electrolux-REDLINES-ZZYON-LEX.docx` — original com 9 comentários laterais ancorados nas cláusulas críticas (autor: ZZYON LEX)
+3. `MINUTA-Electrolux-CONTRAPROPOSTA-ZZYON-LEX.docx` — adiciona 3 tracked changes pontuais sobre o anterior:
+   - 90 → **45 (quarenta e cinco) dias** na cláusula 2.2 (Condições de Pagamento)
+   - 90 → 45 dias no anexo (RFQ "CONDIÇÕES DE PAGAMENTO")
+   - Foro Curitiba → **Joinville/SC + mediação prévia CAM-CCBC** na cláusula 20.1
+4. `PARECER-Electrolux-ZZYON-LEX.docx` — parecer institucional 70 KB, 6 seções, paleta Ícaro V2 (azul #1D2346 + dourado #BB8716, fonte Inter)
+
+## Plano de ação (10 itens em `themis.dossie_eventos`)
+
+| # | Prazo | Responsável | Ação |
+|---|---|---|---|
+| 1 | imediato | Diretoria + Comercial | Reunião com Wellington Lima e Pedro Moises |
+| 2 | 5 dias | Ossowski | Validação dos redlines RL-01 a RL-05 |
+| 3 | 5 dias | Controladoria | Modelagem 3 cenários SLA (95/97/99%) |
+| 4 | 3 dias | Financeiro | Fluxo de caixa 90d × 45d × risco sacado |
+| 5 | 7 dias | Operacional | Análise viabilidade Anexo III (Lead Time) |
+| 6 | 3 dias | Comercial | Solicitar Anexos IV e VI |
+| 7 | 5 dias | Caroline | Validação ANVISA (eletrodomésticos com componentes regulados) |
+| 8 | 10 dias | Operacional + Sompo | PGR conjunto |
+| 9 | 15 dias | Diretoria + Jurídico | Envio formal contraproposta |
+| 10 | pós-acordo | ZZYON LEX | Atualizar dossiê com versão final |
+
+## Como usar os 3 docx
+
+**Para a diretoria** (Rubens, Gabriela): abrir `PARECER-Electrolux-ZZYON-LEX.docx` para decisão.
+**Para Ossowski**: enviar `MINUTA-Electrolux-REDLINES-ZZYON-LEX.docx` (com 9 comentários — trabalho cláusula a cláusula).
+**Para a Electrolux** (Wellington Lima): enviar `MINUTA-Electrolux-CONTRAPROPOSTA-ZZYON-LEX.docx` após aprovação interna — tem comentários + tracked changes prontos para Aceitar/Rejeitar no Word. Não enviar o parecer integral (confidencial interno).
+
+## Comandos úteis para acompanhar
+
+```sql
+-- Ver dossiê com counts
+SELECT * FROM themis.vw_dossies_pulso WHERE codigo = 'DOS-2026-00003';
+
+-- Ver status dos 9 redlines
+SELECT clausula_referencia, severidade, categoria, status, decidido_por_email
+FROM themis.contratos_redlines
+WHERE versao_id = '92be15ea-5ffe-4710-8e9e-e2627da8b53c'
+ORDER BY severidade DESC, clausula_referencia;
+
+-- Ver eventos do dossiê (timeline + plano de ação)
+SELECT ts, tipo, descricao
+FROM themis.dossie_eventos
+WHERE dossie_id = '70113a90-ae25-47f9-9464-3cf1f5d3cff0'
+ORDER BY ts;
+```
+
+**Why:** Rubens pediu plataforma de soluções jurídica completa. BID Electrolux foi o primeiro caso real onde a ZZYON LEX gerou parecer + comentários + tracked changes + persistência no banco em 1 sessão. Validou pipeline end-to-end de análise contratual sem usar a edge function de IA (foi parecer manual com supervisão Claude).
+
+**How to apply:**
+- Antes de mandar contraproposta: consolidar com Ossowski quais redlines manter; atualizar status no banco (`status = 'aceito_pela_icaro'` ou `'recusado_pela_icaro'`).
+- Quando Electrolux responder: criar versão 2 em `contratos_draft_versoes` e cruzar redlines aceitos/recusados pela contraparte.
+- Persistência completa permite tracking de KPIs: tempo médio de fechamento, % de redlines aceitos, perda em valor de causa por concessão.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>electrolux_bid_2026.md</code></em></small>

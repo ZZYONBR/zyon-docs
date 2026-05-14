@@ -1,0 +1,39 @@
+---
+title: "DataJud CNJ não expõe dados de partes"
+description: "API pública DataJud removeu CPF/CNPJ por privacidade — busca por parte sempre 0 hits; consulta por CNJ funciona perfeitamente"
+---
+**Confirmado via probe em 2026-05-06 (TJSP api_publica_tjsp + TJSC api_publica_tjsc).**
+
+A API pública DataJud (https://api-publica.datajud.cnj.jus.br) **NÃO inclui dados de partes** no dataset exposto. Schema real dos documentos:
+
+```
+numeroProcesso, classe, sistema, formato, tribunal,
+dataAjuizamento, dataHoraUltimaAtualizacao, movimentos,
+orgaoJulgador, assuntos, grau, nivelSigilo, id, @timestamp
+```
+
+Não há os campos: `partes`, `envolvidos`, `advogados`, `valores`, `cpfCnpj`, `documento`.
+
+**Resultado prático**: queries `match` em `partes.documento`, `partes.cpfCnpj`, `envolvidos.documento` ou `query_string` com qualquer CNPJ → **sempre 0 hits**, mesmo com `match_all` retornando 10.000+ documentos.
+
+**O que FUNCIONA**:
+- `consultar_processo(numero_cnj, tribunal)` — perfeito (testado: CNJ 40095208420268260007 retornou classe, vara, 8 movimentos).
+- `buscar_por_classe(tribunal, classe_codigo)` — funciona para mapear universo de causas em vara/comarca.
+- `_search` com `match_all` — retorna o universo inteiro, mas sem identificação de quem é parte.
+
+**Why:** dataset público do CNJ remove partes por privacidade/LGPD. Não é bug — é design.
+
+**How to apply:**
+- **NÃO use** `listar_processos_parte(cnpj, tribunal)` para descobrir processos da Ícaro — sempre devolve []. A função foi mantida em `themis/tools/datajud.py` como deprecated por compat.
+- **Estratégia correta** para THEMIS:
+  1. Cadastro inicial dos processos é MANUAL (advogados / import planilha) — popular `themis.processos` com `numero_cnj` + `tribunal`.
+  2. `themis/scripts/sync_datajud.py` itera os CNJs cadastrados e atualiza movimentações + emite alertas em delta. Cron 06h.
+- **Alternativas** se precisar listar por CNPJ depois (decisão fase 3):
+  - Escavador API (pago R$3-5k/mês, tem cobertura de partes)
+  - JusBrasil API
+  - Scrapers próprios e-SAJ TJSP / e-Proc TJSC (com captcha)
+- **API key pública** do CNJ está hardcoded em `themis/tools/datajud.py` (não é segredo, divulgada em datajud-wiki.cnj.jus.br/api-publica/acesso). Pode ser sobrescrita por env var `DATAJUD_API_KEY`.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>datajud_privacidade_partes.md</code></em></small>

@@ -1,0 +1,33 @@
+---
+title: "DAEDALUS — agente Gerente de TI (sustentação técnica ZZYON)"
+description: "15º agente do ecossistema ZZYON (7º vertical), criado 09/05/2026 à noite, junto com ATENA/HEFESTO/METIS no mesmo dia. Espelha cargo de Gerente de TI (Hélio Pirath). Cabe pela construção e sustentação da infra que os outros 14 agentes consomem."
+---
+DAEDALUS é o 15º agente ZZYON (7º vertical), criado em 2026-05-09 como vertical de **sustentação técnica transversal**. Espelha o cargo de **Gerente de TI (Hélio Pirath)**. Codinome grego (Δαίδαλος, mestre artesão) — cabe pela construção e pela sustentação. Localização: `zyon-agents/daedalus/`.
+
+**Escopo (resumo):**
+- É: sustentação ESL Cloud, integrações (Evolution API, Supabase, Tailscale, Ahgora, Autotrac, Langfuse), backups/DR, segurança/LGPD, gestão de acessos (RBAC/SSO/magic links), catálogo `etl_sources`, sustentação técnica dos demais 14 agentes ZZYON, custódia técnica do `icaro-conselho/` (sem ler conteúdo).
+- Não é: construção de novos agentes (ZZYON faz), decisão de produto (Rubens), treinamento de usuário em sistema (RH/área dona).
+
+**5 pendências bloqueadoras Sprint 1 que DAEDALUS formaliza e zera (12-18/mai/2026):**
+1. SUPABASE_KEY ativa no Mac mini (.env hoje vazio)
+2. PM2 startup boot resilient (Cláudio cai a cada reboot)
+3. Push de `00. GESTÃO/Mapeamento 2026/` para GitHub privado
+4. Padronização do runtime container em OrbStack (parar Colima)
+5. Push e ativação git-crypt do `icaro-conselho/`
+
+**Tools previstas**: 8 L1 read-only (`health_check_consolidado`, `freshness_etl_sources`, `auditoria_acessos`, `backup_status`, `inventario_certificados`, `incidente_log`, `dependencia_agente`, `sla_uptime`) + 3 L2 ação revisada (`provisionar_acesso`, `rotacionar_secret`, `escalonar_incidente`).
+
+**Integrações cross-agent**: DAEDALUS é consumido por TODOS os 14 demais agentes (cada um depende de infra) + Saúde ZYON (health primário). Consome de TORRE (catálogo etl_sources, vw_etl_freshness) e THEMIS/LEX (incidente LGPD reportável).
+
+**Why:** Sprint 1 do roadmap depende de trabalho puro de TI hoje informal entre Rubens e Hélio — sem dono nominal vira sombra. Os 14 outros agentes consomem infra mas a infra não tinha dono institucional formal. Padrão "agente espelho de cargo" (ATENA↔Luan, HEFESTO↔Cidne/Ratti, METIS↔Thais, ATLAS↔Jean, HERA↔Aline, HERMES↔Jimmy) deixava TI descoberto. DAEDALUS fecha o conjunto (4º agente nascido em 09/05, à noite). Disjunto de SOFIA (RAG de conhecimento ≠ infra técnica), ROBERVAL (frota documental), HEFESTO (frota operacional), AEGIS (jornada motorista).
+
+**How to apply:**
+- Quando o usuário mencionar TI, Hélio Pirath, Mac mini, Supabase self-hosted, Tailscale, Evolution API, Langfuse, backup, secret, magic link, RBAC, SSO, cert A1, OrbStack/Colima, etl_sources, LGPD ou sustentação de qualquer agente — apontar para DAEDALUS.
+- Antes de propor "novo agente para X de TI" — verificar se já cabe em DAEDALUS.
+- DAEDALUS jamais executa em produção crítica sem revisão Hélio (L2). Custos > R$10k ou troca de fornecedor SaaS são L3 (Rubens).
+- DAEDALUS é L1 admin técnico do `icaro-conselho/` mas NUNCA L2 leitor — não acessa conteúdo classificado.
+- Implementação stub a partir de Sprint 1 (12-18/mai/2026); README completo (12 seções) em `zyon-agents/daedalus/README.md`.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>daedalus_agente_ti.md</code></em></small>

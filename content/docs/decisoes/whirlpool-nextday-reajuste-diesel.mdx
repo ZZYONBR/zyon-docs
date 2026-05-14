@@ -1,0 +1,147 @@
+---
+title: "Whirlpool NextDay SP — Reajuste contratual e diesel (regra oficial Whirlpool)"
+description: "Reajuste contratual 4,97% + reajuste diesel LTL 0,80% × 4 parcelas (Abr/Mai/Jun/Jul 2026). Base 11,29% março × 25% peso diesel = 2,82% target. Conciliação em julho. Gatilho 10% — se não atingir, ESTORNO em Jul/Ago/Set conforme regra oficial Whirlpool."
+---
+# Reajustes Whirlpool NextDay SP — Regra Oficial
+
+> Fonte: comunicado oficial Whirlpool sobre antecipação extraordinária da análise
+> de reajuste Diesel para LTL a partir de Abril/2026.
+
+## 1. Reajuste contratual: **4,97%**
+
+- **Vigência**: a partir de Abril/2026
+- **Base**: cost breakdown costdrivers.com Nov/2024 → Mar/2026
+- **Aplicado sobre**: custo fixo, hora extra, km excedente
+
+### Valores antes × depois (Abril/2026):
+
+| Item | Pré-reajuste | Pós-reajuste (Abr/26+) |
+|---|---:|---:|
+| Custo fixo / veículo / mês | R$ 29.700,00 | **R$ 31.176,09** |
+| Custo fixo total (8 veículos) | R$ 237.600,00 | **R$ 249.408,72** |
+| Hora extra | R$ 120,00/h | **R$ 125,964/h** |
+| Km excedente | R$ 3,60/km | **R$ 3,7789/km** |
+
+## 2. Reajuste do diesel — **regra oficial Whirlpool LTL**
+
+### 2.1. Implementação Provisória (Base 11,29%)
+
+Whirlpool comunicou antecipação extraordinária da análise de reajuste Diesel para
+modalidade LTL a partir de Abril:
+
+- **Variação base de Março**: 11,29%
+- **Peso Diesel (LTL)**: 25%
+- **Ajuste Total Target**: 11,29% × 25% = **2,82%**
+- **Cronograma**: 4 parcelas sucessivas de **0,80%** (Abr, Mai, Jun e Jul/2026)
+
+### 2.2. Conciliação e Parcela de Ajuste Fino (Julho)
+
+Em **Julho/2026** será realizado o acerto de contas final:
+
+- A 4ª parcela servirá como **ajuste para equalizar** o montante total à média
+  real do período de análise.
+- Se o real consolidado divergir do target (2,82%), a 4ª parcela é recalibrada.
+
+### 2.3. Cláusula de Estorno (Gatilho de 10,0%)
+
+Gatilho contratual LTL: **10,0%**.
+
+Caso a média real final consolidada mostre que a variação do combustível **não
+atingiu 10,0%**, o reajuste é **CANCELADO** e o montante pago antecipadamente é
+**integralmente recuperado pela Whirlpool via estorno**:
+
+| Adiantamento de | Estornado na fatura de |
+|---|---|
+| **Abril/2026** | **Julho/2026** |
+| **Maio/2026** | **Agosto/2026** |
+| **Junho/2026** | **Setembro/2026** |
+
+### 2.4. Governança
+
+- **Sem retroativos**: NÃO se aplicam reajustes Diesel a Fevereiro ou Março/2026.
+- Esta antecipação **substitui** a revisão regular de Julho.
+- Aplicação **exclusiva à modalidade LTL**.
+
+### 2.5. Como aplicar nas reentregas/devoluções
+
+```
+Se mês_apuração ∈ {Abr, Mai, Jun, Jul / 2026}:
+  pct_diesel = 0,80% (provisório)
+Senão:
+  pct_diesel = 0%
+
+frete_reentrega_final = frete_60% × (1 + pct_diesel)
+```
+
+A 4ª parcela (Julho) pode mudar para mais ou menos conforme conciliação.
+
+## 3. Aplicação combinada na Carta de Crédito (Abr/2026+)
+
+```
+1. CUSTO FIXO MENSAL  (8 veíc × R$ 31.176,09)              R$ 249.408,72
+2. (+) Hora extra      (h × R$ 125,964)                     R$  XX.XXX
+3. (+) Km excedente    (km × R$ 3,7789)                     R$  XX.XXX
+4. SUBTOTAL NEXT DAY                                         R$ XXX.XXX
+5. (+) Reajuste Diesel sobre Subtotal × 0,80%               R$   X.XXX
+6. TOTAL NEXT DAY                                            R$ XXX.XXX
+7. (+) Reentregas/Devoluções (60% Super Rápida × m³)        R$  XX.XXX
+8. (+) Reajuste Diesel sobre Reentregas × 0,80%             R$     XXX
+9. (+) Cobrança Extra Intercorrências                       R$   X.XXX
+10. TOTAL A FATURAR                                          R$ XXX.XXX
+11. (+) ICMS + ISS destacados (reembolso)                   R$  XX.XXX
+12. (=) TOTAL BRUTO CONTRATUAL                              R$ XXX.XXX
+13. (-) Faturado por CT-e/NFSe S/ Impostos                  R$ -XXX.XXX
+14. (=) TOTAL CARTA DE CRÉDITO                              R$  XX.XXX
+```
+
+## 4. Pontos críticos para gestão
+
+1. **Manter histórico do diesel pago**: toda parcela 0,80% paga em Abr/Mai/Jun
+   pode ser estornada se gatilho 10% não atingir. Reservar provisão.
+
+2. **4ª parcela ≠ 0,80% necessariamente**: em Julho ela vira a parcela de
+   conciliação, recalibrada conforme média real.
+
+3. **Sem retroativo**: NF emitida em Mar/2026 finalizada em Abr/2026 → cobra com
+   diesel? **A regra contratual diz "a partir de Abril"** sem distinguir —
+   nossa implementação atual cobra pelo mês de DESFECHO (data_entrega ou
+   data_ult_ocorrência). Logo: NF Mar emitida, finalizada Abr → cobra diesel.
+
+4. **Modalidade**: regra é EXCLUSIVA para LTL (Less Than Truckload). Operação
+   NextDay SP é justamente LTL → aplica.
+
+5. **Comunicação à Whirlpool**: ao apresentar a carta de cobrança, deixar
+   explícito o `pct_diesel` aplicado em cada NF, para que eles confirmem.
+
+## 5. Tabela `nextday_sp.parametros_mensais`
+
+Estado atual (2026-05-09):
+
+```
+2025-01 → 2026-03: pct_reajuste_diesel = 0
+2026-04:           pct_reajuste_diesel = 0.008 (1ª parcela 0,80%)
+2026-05:           AINDA NÃO INSERIDO  ← inserir 0.008 (2ª parcela)
+2026-06:           AINDA NÃO INSERIDO  ← inserir 0.008 (3ª parcela)
+2026-07:           AINDA NÃO INSERIDO  ← inserir após conciliação (4ª parcela calibrada)
+```
+
+A função `nextday_sp.fn_calcular_valor_reentrega(m3, mes)` consulta essa tabela.
+Inserir as parcelas Mai/Jun assim que confirmadas pela Whirlpool.
+
+## 6. Caso de estorno (planejamento)
+
+Se em Julho/2026 a conciliação indicar que o gatilho 10% NÃO foi atingido:
+
+```sql
+-- 1. Marcar mês fonte do estorno em parametros_mensais
+UPDATE nextday_sp.parametros_mensais
+   SET observacao = observacao || ' [ESTORNADO em ' || estorno_mes || ']'
+ WHERE mes IN ('2026-04-01','2026-05-01','2026-06-01');
+
+-- 2. Calcular valor a estornar (montante já pago × diesel)
+-- 3. Registrar lançamento contábil de devolução nas faturas de Jul/Ago/Set
+```
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>whirlpool_nextday_reajuste_diesel.md</code></em></small>

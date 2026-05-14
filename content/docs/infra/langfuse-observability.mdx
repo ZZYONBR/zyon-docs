@@ -1,0 +1,26 @@
+---
+title: "Langfuse self-hosted é a observabilidade oficial dos agentes ZYON"
+description: "Langfuse rodando no Mac mini Tailscale, integrado ao Cláudio e padrão para todos os próximos agentes"
+---
+Langfuse self-hosted (versão 3.7+) é a plataforma oficial de observabilidade dos agentes ZYON, instalada em 2026-05-01.
+
+**URL:** `http://100.65.23.99:3000` (IP Tailscale do Mac mini, sempre acessível com Tailscale ligado)
+
+**Container Docker:** OrbStack runtime, 6 containers em `~/langfuse/docker-compose.yml` no Mac mini
+
+**Org/Projeto:** ICARO EXPRESS / ZYON Agents
+
+**Wrapper de integração:** `core/observability.py` no zyon-agents. Compatível com Langfuse v3 (não usa `langfuse.decorators`, que foi removido). Importar `from core.observability import trace, update_generation, update_trace, flush, get_trace_url`.
+
+**Why:** Sem observabilidade, não há como saber quando agentes são acionados, quanto custam, falham silenciosamente. Resolveu reclamação fundamental de "no outro dia o agente não sabe o que fazer". Langfuse é open source, free self-hosted, com SDK Python nativo.
+
+**How to apply:**
+- Todo agente novo importa `from core.observability import trace, update_generation, update_trace`.
+- Decorar entry point (handler de webhook, comando) com `@trace(name="agente.metodo")`.
+- Decorar chamada Claude com `@trace(name="...", as_type="generation")` + `update_generation(model=..., input_text=..., output_text=..., input_tokens=..., output_tokens=...)` após receber resposta.
+- Wrapper é seguro: se Langfuse offline ou env vars faltarem, vira no-op silencioso.
+- Para validar trace de prod: GET `http://100.65.23.99:3000/api/public/traces?limit=5` com Basic Auth (PUBLIC_KEY:SECRET_KEY).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>langfuse_observability.md</code></em></small>

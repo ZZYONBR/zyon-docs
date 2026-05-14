@@ -1,0 +1,59 @@
+---
+title: "COSMOS Sprint 1 entregue (forecast operacional simples)"
+description: "Estado de COSMOS após Sprint 1 — 4 tools L1 read-only sobre mv_fretes_unificados; gaps conhecidos (HERMES/ATLAS/codinome ESL); migration cosmos.* aguarda Hélio"
+---
+COSMOS — vertical S&OP — Sprint 1 entregue 2026-05-09 com 4 tools L1 read-only:
+`forecast_volume`, `capacity_frota`, `demand_sensing`, `simular_cenario_sop`. 43 testes
+unitários verdes + 3 smoke contra Supabase real (ZYONCS).
+
+**Why:** materializa o vertical S&OP previsto na arquitetura ZZYON 14 agentes. Briefing
+da fábrica de Sprint 1 pediu forecast inicial sobre dados existentes; Sprint 2 evolui
+com Prophet + ATLAS, Sprint 3 com LLM-driven + reunião S&OP automatizada.
+
+**How to apply:**
+
+- **Fontes canônicas reais** (descobertas no smoke contra Supabase ZYONCS, NÃO o que o
+  briefing dizia):
+  - `mv_fretes_unificados` (206k rows) — colunas `data_frete, pagador, filial,
+    destination_uf, valor_nf, valor_frete, cte_numero`. NÃO `cs_entregas_historicas`.
+  - `vw_frt_placa_filial_dominante` (51 placas) — coluna real é `filial_dominante`,
+    NÃO `filial_canonica`.
+  - `mv_previsao_volume_filial` (12 rows) — pré-agregação 90d rolling com
+    `media_30d, media_90d, previsao_d7, previsao_d30, status`.
+
+- **Codinome ESL ≠ canônico ZZYON**: filial em `mv_fretes_unificados` é
+  "1.02 ICARO SP" (não "SAO"). Sprint 1 usa `ilike "%filial"` como aproximação;
+  funciona para JOI mas falha para SAO ("1.02 ICARO SP" não termina em "SAO").
+  Sprint 2 deve mapear via `fn_frt_filial_codigo()`.
+
+- **Migration `001_cosmos_schema.sql`** AGUARDA Hélio aplicar em ZYONCS
+  (project_id `hbrvoairynwsliyxxgsg`). Cria schema `cosmos` com 3 tabelas:
+  `forecast_history` (com UNIQUE composto para idempotência), `capacity_snapshots`,
+  `cenarios_sop`. Reversível com `DROP SCHEMA cosmos CASCADE;`.
+
+- **Testes rodam APENAS via SSH no Mac mini** (`ssh rubens@100.65.23.99 "cd
+  ~/zyon-agents && PYTHONPATH=. ./.venv/bin/python -m pytest cosmos/tests/ ..."`).
+  Sandbox MacBook bloqueia execução do Python da venv (mesmo padrão de
+  `zzyon_lex_pipeline_completo.md`).
+
+- **Smoke real**: `pytest -m smoke cosmos/tests/test_smoke_real.py` requer
+  SUPABASE_URL/KEY apontando para ZYONCS. Verde 2026-05-09.
+
+- **Pendências Sprint 2** (não fazer ainda):
+  1. Prophet/ARIMA com benchmark vs média móvel
+  2. Job retroativo populando `volume_real` em `cosmos.forecast_history` para medir MAPE
+  3. Mapeamento codinome ESL → canônico via `fn_frt_filial_codigo()`
+  4. Inclusão de aéreos via `cs_tracking_awbs`
+  5. HERMES (pipeline ponderado) — bloqueado até HERMES sair do skeleton
+  6. ATLAS (custos rateio) — bloqueado até ATLAS expor view de custo por cliente/rota
+  7. LLM-driven forecast (Opção C) com bench vs A/B
+
+- **Donos**: Luan Leopoldo (Operações, sob POS-001/R1), Rubens (estratégia).
+
+- **KPIs Sprint 1**: 4 tools entregues, 46 testes verdes, smoke real passa, dados reais
+  retornando (Whirlpool média 2k fretes/mês, JOI média 2.942/mês, frota total 51 placas,
+  gap +6.456 fretes em maio/2026).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>cosmos_sprint1_estado.md</code></em></small>

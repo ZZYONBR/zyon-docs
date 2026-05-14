@@ -1,0 +1,84 @@
+---
+title: "pg_cron — fixes da onda 2C (10/05/2026)"
+description: "256 falhas em 24h em ZYONCS resolvidas em 10/05/2026 durante auditoria TORRE. Histórico de cada fix + estado pós-correção."
+---
+Auditoria TORRE de Controle em 10/05/2026 detectou check `cron_falhas_24h = 256` (CRÍTICO, threshold 5). Decomposição mostrou 4 jobs causando 78% das falhas. Resolvido em sessão.
+
+## Decomposição original (10/05 ~22h)
+
+| Job | jobid | Falhas/24h | Causa raiz |
+|---|---|---|---|
+| ra-escalacao-1h | 103 | 96 | `vault.create_secret_or_get(unknown)` não existe |
+| mv-ocorrencias-refresh-30min | 90 | 48 | `REFRESH MV IF EXISTS` — sintaxe inválida |
+| freshness_watchdog_30min | 30 | 30 | Coluna `status` ambígua (variável local vs coluna) |
+| cron_apply_alerts | 3 | 24 | 3 alert_rules com `sql_detector` NULL geravam `FROM ()` |
+| mv-cli360-refresh-1h | 77 | 24 | Statement timeout em `fn_pagador_canonical` (Seq Scan) |
+| self-heal-on-incidents | 83 | 24 | `fn_self_heal_incidents()` não existe |
+| menu_amanha_rj_mg_18h | 33 | 1 | `vw_menu_amanha` não existe |
+| menu_amanha_sp_cpq_20h | 32 | 1 | idem |
+| auto-canonical-pagadores-diario | 76 | 1 | Coluna `cnpj` não existe em `cs_pagadores_canonical` (schema mudou para `cnpj_radical`) |
+| outros (timeouts esporádicos) | – | 7 | health-checks-15min, freshness_watchdog_madruga |
+
+## Fixes aplicados (todos em ZYONCS via apply_migration / cron.unschedule / cron.schedule)
+
+### A) `fn_freshness_watchdog` — qualificar `status` (30 falhas/24h)
+Variável local da função (`RETURNS TABLE (... status text ...)`) colidia com coluna `status` no `IF NOT EXISTS (SELECT 1 FROM cs_freshness_alerts WHERE ... AND status = ...)`. Renomeado o filtro interno para usar alias da tabela (`fa.status`).
+
+### B) cron `mv-ocorrencias-refresh-30min` (48 falhas/24h)
+Comando antigo: `REFRESH MATERIALIZED VIEW IF EXISTS mv_cli360_data;` — `IF EXISTS` não é válido em REFRESH. Tentei reagendar com `CONCURRENTLY` mas a MV não tem unique index obrigatório. Reagendado como `REFRESH MATERIALIZED VIEW mv_cli360_data;` (sem CONCURRENTLY, sem IF EXISTS). Novo jobid 158.
+
+### C/D) crons órfãos deletados via `cron.unschedule(jobid)` (27 falhas/24h)
+- `83` self-heal-on-incidents — `fn_self_heal_incidents()` foi removida
+- `32`, `33` menu_amanha_* — `vw_menu_amanha` foi removida
+- `76` auto-canonical-pagadores-diario — schema de `cs_pagadores_canonical` mudou (cnpj→cnpj_radical, função não foi atualizada)
+
+### E) `fn_ra_escalar_pendentes` — vault API correta (96 falhas/24h)
+Função tentava `vault.create_secret_or_get('EVOLUTION_BASE_URL')` que não existe. API correta no Supabase Vault é via view `vault.decrypted_secrets` — `(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = 'EVOLUTION_BASE_URL' LIMIT 1)`. Validado: 0 RAs pendentes vão escalar imediatamente, então a correção não dispara avalanche de WhatsApp para Rubens.
+
+### F) `fn_apply_alert_rules` — pular rules sem `sql_detector` (24 falhas/24h)
+3 rules ATIVAS com `sql_detector` NULL: ATRASO_GOLLOG, RUPTURA_GOLLOG, VOLUME_PERDIDO_3D. Geravam `FROM () AS detected` (string vazia interpolada). Adicionado filtro `AND sql_detector IS NOT NULL AND length(trim(sql_detector)) > 0`. Adicionado também `BEGIN ... EXCEPTION WHEN others` por rule, evita que uma rule quebrada derrube o cron inteiro.
+
+### H) `mv-cli360-refresh-1h` timeout — índice direto (24 falhas/24h)
+`fn_pagador_canonical` faz `SELECT pagador_documento FROM cs_esl_ocorrencias WHERE pagador_nome = p_nome` (case-sensitive). O índice existente era `idx_esl_ocorrencias_pagador ON tracking.esl_ocorrencias (upper(pagador_nome))` — não cobre o predicado direto, gerava Seq Scan em 41k rows.
+
+Criado `idx_esl_ocorrencias_pagador_nome_doc ON tracking.esl_ocorrencias (pagador_nome) WHERE pagador_documento IS NOT NULL`.
+
+Validação:
+- EXPLAIN antes: Seq Scan, 42ms
+- EXPLAIN depois: Index Scan, **0,088ms (478× mais rápido)**
+- `fn_pagador_canonical('WHIRLPOOL S.A.')`: 10,67ms total
+- REFRESH manual de `mv_cli360_data`: completou em <120s (statement_timeout)
+
+`tracking.awbs` JÁ tinha `idx_tracking_awbs_pagador WHERE pagador IS NOT NULL`, não precisava de novo índice.
+
+## Estado pós-fix
+
+A contagem `cron_falhas_24h` ainda mostra ~250 porque o histórico das 24h anteriores está no log. **Próximas execuções dos crons corrigidos vão passar** — esperar 1h pra próximo ciclo e re-medir o check.
+
+Crons ainda ATIVOS (todos corrigidos):
+- 3 = `cron_apply_alerts` (15 * * * *)
+- 30 = `freshness_watchdog_30min` (*/30 9-23 * * *)
+- 77 = `mv-cli360-refresh-1h` (5 * * * *)
+- 103 = `ra-escalacao-1h` (*/15 * * * *)
+- 158 = `mv-ocorrencias-refresh-30min` (10,40 * * * *)
+- 87 = `mv-cli360-refresh-diario` (30 4 * * *)
+
+## Pendências relacionadas
+
+- **`briefing_vs_otd_consistencia` = 1797**: divergência REAL entre `vw_briefing_executivo.total_aberto = 2328` e `SUM(vw_otd_por_filial.total_fretes) = 1214`. Não é bug de cron — é diferença arquitetural (briefing inclui Deutsche/MLOG/BUD, OTD já segrega). Revisão das definições das views fica pendente.
+- **`margens_cobertura_abril_2026` = 11,8%**: real (não 19,7% do check). MV `mv_cli360_margem_real` provavelmente cobre mais período antigo. Investigar quais fontes alimentam `margin_percentual`.
+- **`pendentes_sem_agente_7d` = 5,4%**: REAL bem menor que o 66,1% do check. Divergência sugere que o check usa critério diferente (talvez só fretes pendentes, não todos).
+- 4 alert_rules ATIVAS com `sql_detector` NULL devem ser **completadas ou desativadas** em `tracking.alert_rules` (ATRASO_GOLLOG, RUPTURA_GOLLOG, VOLUME_PERDIDO_3D).
+- crons deletados podem ser recriados quando suas funções/views forem reescritas: self-heal, menu_amanha, auto-canonical-pagadores.
+
+**Why:** documenta o contexto exato dos fixes para que DAEDALUS (Sprint 1) e qualquer auditoria futura entendam o que foi resolvido versus o que continua pendente.
+
+**How to apply:**
+- Antes de aplicar fix novo em pg_cron, sempre rodar `SELECT * FROM cron.job_run_details WHERE start_time > now() - interval '1 hour' AND status != 'succeeded'` pra entender estado atual.
+- Para reagendar cron sem perder histórico: `cron.unschedule(jobid)` + `cron.schedule(name, cron_expr, command)`. Novo jobid é gerado.
+- `vault.create_secret_or_get()` NÃO existe no Supabase Vault. Usar `(SELECT decrypted_secret FROM vault.decrypted_secrets WHERE name = $1 LIMIT 1)`.
+- Para indexar predicados de funções, validar com `EXPLAIN` que o índice é escolhido (índices funcionais como `upper()` não cobrem comparações case-sensitive diretas).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>pg_cron_fixes_2026_05_10.md</code></em></small>

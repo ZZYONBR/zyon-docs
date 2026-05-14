@@ -1,0 +1,22 @@
+---
+title: "ESL Cloud — documentação oficial Postman (API base)"
+description: "URL canônica da documentação Postman da API ESL Cloud — referência primária para qualquer integração nova. Compartilhada por Rubens 10/05/2026."
+---
+Boa parte da base da API ESL Cloud (TMS oficial Ícaro Express, tenant `icaro`) está documentada publicamente no Postman:
+
+**URL canônica**: https://documenter.getpostman.com/view/20571375/2s9YXk2fj5
+
+Workspace ID `20571375`, collection `2s9YXk2fj5`. Compartilhado por Rubens em 2026-05-10 como referência primária.
+
+**Why:** até agora as memórias específicas de ESL (`esl_data_export_api.md`, `esl_graphql_lookup.md`, `esl_compras_xml_report.md`, `esl_caminho_oficial_extracao.md`) cobrem caminhos específicos descobertos em campo (Data Export REST, GraphQL lookup, download de XML de compra). Esta é a fonte oficial agregada — quando algo não estiver nessas memórias, consultar esta URL ANTES de inferir endpoint.
+
+**How to apply:**
+- Antes de propor um novo endpoint ESL, fazer um WebFetch nesta URL (ou pedir ao usuário pra abrir e copiar o trecho relevante).
+- Atualizar as memórias específicas (`esl_*`) quando descobrir endpoints novos a partir desta doc.
+- DAEDALUS usa esta URL como insumo do catálogo `etl_sources` — toda fonte ESL declarada deve ter referência cruzada para o item correspondente nesta documentação.
+- HERMES (comercial), ATLAS (financeiro), HEFESTO (frota) e ATENA (operações) consomem ESL via integrações que devem se ancorar primeiro nesta doc.
+- A doc é pública (Postman público), portanto seguro fetch direto via WebFetch sem credencial.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>esl_postman_docs_oficial.md</code></em></small>

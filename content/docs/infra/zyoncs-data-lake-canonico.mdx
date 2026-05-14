@@ -1,0 +1,227 @@
+---
+title: "ZYONCS — Data Lake Canônico Operacional ZZYON"
+description: "Mapa dos 9 projetos Supabase com papéis claros. ZYONCS é o data lake canônico operacional dos 15 agentes; ZYON.RH e zzyon-lex são domínios isolados (LGPD/sigilo) consultados via federação Python — nunca via SQL cross-project. Decisão formalizada em 10/05/2026 a partir de pergunta de Rubens sobre evitar re-extração ESL a cada execução."
+---
+## Decisão canônica
+
+**ZYONCS** (`hbrvoairynwsliyxxgsg`) é o **data lake canônico operacional** que todos os 15 agentes ZZYON consultam. Domínios isolados (RH e jurídico) ficam em projetos próprios e são acessados via **federação Python** no `repo.py` do agente — **NUNCA** via SQL dblink/FDW (custa mais que a query, é frágil e quebra isolamento LGPD/sigilo).
+
+## Mapa dos 9 projetos Supabase (estado real 09/05/2026 via MCP)
+
+| Project ID | Nome | Papel | Quem usa |
+|---|---|---|---|
+| `hbrvoairynwsliyxxgsg` | **ZYONCS** | **Data lake canônico operacional** | ATLAS, ÍCARUS, COSMOS, AEGIS, SOFIA, TORRE, HERMES (mv_fretes_unificados, vw_frt_placa_filial_dominante, cs_ra_*, atlas.*, etc.) |
+| `hzvcimkejrtcagbvusxt` | **ZYON.RH** | Domínio isolado RH (LGPD) | HERA (cpf_hash, folha, certificações) |
+| `ywhmlvojowtsfetiyebg` | **zzyon-lex** | Domínio isolado jurídico | THEMIS/LEX |
+| `eonmrazwqitjeouvnotn` | ZYON.TRNS | Pipeline transporte (legacy) | TORRE (datasets antigos) |
+| `ryughyacjbezsmxquwqd` | icaro-bpm | BPM/processos | METIS (futuro) |
+| `cvjrgbuvnnkasdrraczn` | zzyon-saas-control | Controle interno SaaS | Saúde ZYON (meta-orquestrador) |
+| `ahbkkizuzevyemlbvulf` | icaro-gestao-2026 | Gestão executiva 2026 | Mapeamento/MOHAMED |
+| `qzuyaqykiynwjnmlkgpq` | icaro-site-public | Site público | Marketing/SEO |
+| `adbjwgbmwgqeudlpaiht` | icaro-lastmile | Last-mile específico | Operacional pontual |
+
+## Estrutura interna do ZYONCS (data lake)
+
+```
+ZYONCS
+├── public.*       mestres operacionais (mv_fretes_unificados, cs_ra_*, …)
+├── raw_esl.*      staging tables 1:1 com exports ESL (Onda 1)
+├── etl_sources    catálogo de fontes (existe)
+├── etl_runs       log de execuções (a criar — Onda SSoT-2)
+├── vw_etl_freshness   termômetro de freshness (existe)
+├── atlas.*    icarus.*    cosmos.*    aegis.*    sofia.*
+├── torre.*    hermes.*    atena.*     metis.*    hefesto.*
+└── (HERA NÃO mora aqui — está em ZYON.RH por LGPD)
+```
+
+## Quem acessa o quê
+
+| Agente | ZYONCS | ZYON.RH | LEX | Observação |
+|---|---|---|---|---|
+| TORRE | ✅ R/W | — | — | Operacional ESL |
+| ATENA | ✅ R/W | ✅ R | — | Cadastro motorista (HERA) |
+| ATLAS | ✅ R/W | ✅ R | — | DRE precisa custo_pessoal de HERA |
+| HERA | — | ✅ R/W | — | Dono do domínio RH |
+| HERMES | ✅ R/W | ✅ R | — | CRM consulta vendedor de HERA |
+| THEMIS/LEX | — | — | ✅ R/W | Dono do domínio jurídico |
+| AEGIS | ✅ R/W | ✅ R | — | Jornada cruza HERA |
+| COSMOS | ✅ R/W | — | — | Forecast operacional |
+| ÍCARUS | ✅ R/W | — | — | CS operacional |
+| SOFIA | ✅ R/W | — | — | RAG indexa public/* |
+| CLÁUDIO | ✅ R/W | — | — | WhatsApp |
+| ROBERVAL | ✅ R/W | — | — | Frota documental |
+| HEFESTO | ✅ R/W | — | — | Frota operacional |
+| METIS | ✅ R/W | — | — | + icaro-bpm (próprio) |
+| DAEDALUS | ✅ R/W | ✅ R/W | ✅ R/W | TI sustenta toda a infra |
+| MOHAMED | ✅ R | ✅ R | ✅ R | CEO sintetiza tudo (read-only) |
+| ABOOBAKAR | (via MOHAMED) | (via MOHAMED) | (via MOHAMED) | + repo `icaro-conselho/` (Git, não Supabase) |
+
+## Pipeline ESL Cloud — arquitetura real (descoberto 10/05/2026)
+
+ZYONCS já tem pipeline de ingestão ESL completo via Data Export REST:
+
+```
+pg_cron (cron.job)
+   │  HTTP POST com template_code
+   ▼
+edge fn esl-pipeline                  ← orquestrador (3 steps: export, download, process)
+   │
+   ├─→ edge fn esl-export-report      ← chama POST /api/analytics/reports/{id}/export
+   │     │  cria job em cs_esl_jobs
+   │     │  polling show_url até ter download_url
+   │     │  baixa XLSX → Supabase Storage 'esl-reports'
+   │     │  invoca esl-process-xlsx
+   │
+   └─→ edge fn esl-process-xlsx       ← parsing e upsert em target_table
+                                          (target definido em cs_esl_report_templates)
+
+Catálogo de templates: public.cs_esl_report_templates
+   colunas-chave: code, esl_report_id, esl_template_id, search_field,
+                  base_url, target_table, is_active, only_undelivered,
+                  delivered_column_name, transportadora_codes,
+                  date_end_offset_days, date_end_business_days_offset
+   ESL_TOKEN: vault.decrypted_secrets
+
+Crons agendados (cron.job, padrão esl_NN_<slug>):
+  03:00 esl_01_cons_aereo   → CONS_AEREO  → cs_entregas
+  03:07 esl_02_fatjc        → FAT_JC      → cs_tracking_awbs
+  03:14 esl_03_ocorr_whp    → OCORR_WHP   → cs_esl_ocorrencias  ✅
+  03:21 esl_04_cons_rodo    → CONS_RODO   → cs_entregas
+  03:28 esl_05_sinistros    → SINISTROS   → cs_esl_sinistros    ❌ 18/18 falhas
+  03:35 esl_06_whp_lo       → WHP_LO      → cs_esl_ocorrencias  (criado 10/05/2026)
+  + outros (graphql, margins, occurrences-15min, etc.)
+```
+
+### Gaps críticos identificados em 10/05/2026
+
+1. **SINISTROS 100% failure** — RESOLVIDO 10/05/2026 via fix tríplice. Root cause: ESL alterou colunas `RCTRC`/`RCTAC`/`RCFDC` de numeric para categorias por modal (Avaria/Extravio/Outros) + headers `Nota Fiscal/...` com F maiúsculo (legacy `Nota fiscal/...` com f minúsculo). Migration `005_fix_fn_ingest_sinistros_categorical_rctrc` + edge fn `esl-ingest-template` v13. Validado em job manual 10/05 15:25 (25 rows + 13 categorias). Detalhes abaixo.
+2. **WHP_LO sem cron** (RESOLVIDO 10/05) — template ativo desde criação mas nenhum cron agendado. Único job 22/04 falhou. Cron `esl_06_whp_lo` criado em 10/05. Aguardando primeira execução 03:35.
+3. **CONS_AEREO/CONS_RODO downstream** — jobs marcam OK no `cs_esl_jobs`, mas `cs_entregas` parou em 06/01/2026 (4 meses sem novos rows). Provável que `esl-process-xlsx` não esteja persistindo. Investigar.
+
+### Fix SINISTROS (10/05/2026) — referência
+
+**Caller**: `esl-pipeline` → `esl-ingest-template` → RPC `fn_ingest_sinistros` → tabela base `tracking.esl_sinistros` (view `public.cs_esl_sinistros` projeta).
+
+**3 bugs sobrepostos identificados via análise direta do XLSX presigned do S3**:
+
+- **Bug 1 (silencioso)**: ESL emite headers `Nota Fiscal/Número`, `Nota Fiscal/Série`, `Nota Fiscal/Volumes`, `Nota Fiscal/Valor NF` com F maiúsculo. `COLUMN_MAPS.SINISTROS` (v12) tinha apenas `Nota fiscal/...` com f minúsculo. Resultado: `nf_numero`, `nf_serie`, `volumes`, `valor_nf` ficavam NULL silenciosamente.
+
+- **Bug 2 (fatal)**: ESL passou a emitir `RCTRC` (col 14), `RCTAC` (col 15), `RCFDC` (col 16) como categorias por modal (`Avaria`, `Extravio`, `Outros`), não numeric. RPC fazia cast direto `NULLIF(...)::NUMERIC` → erro `invalid input syntax for type numeric: "Outros"`. 18/18 jobs FAILED.
+
+- **Bug 3 (perda de informação)**: tabela não tinha colunas para guardar a categoria do sinistro por modal — informação operacional valiosa para ATLAS/TORRE RA/ÍCARUS.
+
+**Fix aplicado**:
+1. Helper `public.fn_safe_numeric(text)` — cast tolerante (texto → NULL).
+2. `tracking.esl_sinistros` ganhou 3 colunas TEXT: `rctrc_tipo`, `rctac_tipo`, `rcfdc_tipo` (final, preserva ordem da view).
+3. View `public.cs_esl_sinistros` recriada com as 3 colunas anexadas no FINAL.
+4. `fn_ingest_sinistros` reescrita usando `fn_safe_numeric` + extração da categoria via CASE quando valor não é numérico.
+5. `esl-ingest-template` v13: COLUMN_MAPS.SINISTROS aceita ambos `Nota Fiscal/` e `Nota fiscal/` (retrocompat).
+
+**Distribuição de categorias na 1ª ingestão validada** (job manual 10/05 15:25, 25 sinistros 09/04→10/05):
+
+| rctrc_tipo (Rodoviário) | rctac_tipo (Aéreo) | qty |
+|---|---|---|
+| Outros | – | 7 |
+| Extravio | – | 2 |
+| – | Extravio | 3 |
+| – | Avaria | 1 |
+| – | – | 12 |
+
+## Estado real da infra ETL (descoberto 10/05/2026 via MCP)
+
+**Schema PT-BR já consolidado em `public.*` desde 27/04/2026** — não recriar em EN.
+
+Tabelas existentes:
+- `public.etl_sources` (18 fontes, 9 críticas → 21 após seed Onda 1)
+- `public.etl_runs` — colunas: `source_name`, `iniciado_em`, `finalizado_em`, `duracao_ms`, `status` (text: 'running'|'ok'|'error'|'partial'), `rows_lidas`/`inseridas`/`atualizadas`/`erro`, `detalhes` (jsonb), `erro_mensagem`
+- `public.etl_cursors`, `public.cs_ra_etl_pending`
+- `public.vw_etl_freshness` — colunas: `source_name`, `entidade`, `origem`, `tabela_destino`, `fonte_canonica`, `is_critica`, `freq_esperada_min`, `cron_jobname`, `edge_function`, `ultima_atualizacao`, `minutos_atraso`, `status_freshness` ('OK'|'ATENCAO'|'CRITICO'|'SEM_DADOS'|'N/A'), `observacoes`
+- `public.fn_etl_last_run`, `public.fn_run_data_integrity_check`
+
+Fontes Onda 1 adicionadas em 10/05/2026 via migration 002:
+- `cons_aereo` (report 2567), `whp_lo` (3314/3779, **CRITICA** — 31,7% faturamento), `sinistros` (4364, **CRITICA**)
+
+Status crítico atual de fontes ESL existentes (10/05 ~11h):
+- `faturamento_jc`/`fretes_jc`/`margens_jc` parados desde 09/05 04:00 (33h)
+- `inbox_emails` (MS Graph) parado há 16 dias — OAuth expirado
+- `tracking_awbs` gap incremental
+- `ocorrencias_esl` cron OK mas throughput insuficiente (gap ~80k)
+
+## Padrão canônico repo.py (federação Python)
+
+```python
+# zyon-agents/<agente>/repo.py
+from supabase import create_client
+import os
+
+class Repo:
+    def __init__(self):
+        self._zyoncs = create_client(os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_KEY"))
+        self._rh = create_client(os.getenv("SUPABASE_RH_URL"), os.getenv("SUPABASE_RH_KEY")) if os.getenv("SUPABASE_RH_URL") else None
+        self._lex = create_client(os.getenv("SUPABASE_LEX_URL"), os.getenv("SUPABASE_LEX_KEY")) if os.getenv("SUPABASE_LEX_URL") else None
+
+    def get_zyoncs(self): return self._zyoncs
+    def get_rh(self): return self._rh
+    def get_lex(self): return self._lex
+
+    def check_freshness(self, source_name: str) -> dict:
+        """Gate obrigatório antes de tools L2/L3 críticas.
+
+        Filtra por `source_name` (NÃO `source`). Retorna dict com chaves
+        do schema PT-BR de vw_etl_freshness:
+          source_name, entidade, origem, tabela_destino, fonte_canonica,
+          is_critica, freq_esperada_min, cron_jobname, edge_function,
+          ultima_atualizacao, minutos_atraso, status_freshness, observacoes.
+
+        status_freshness ∈ {'OK','ATENCAO','CRITICO','SEM_DADOS','N/A'}.
+        """
+        return (
+            self._zyoncs.from_("vw_etl_freshness")
+            .select("*").eq("source_name", source_name)
+            .single().execute().data
+        )
+
+    def is_fresh(self, source_name: str) -> bool:
+        try:
+            return self.check_freshness(source_name).get("status_freshness") == "OK"
+        except Exception:
+            return False
+```
+
+## Regras canônicas
+
+1. **NUNCA** usar SQL cross-project (dblink, FDW). Sempre federação Python no agente.
+2. **Sempre** consultar `vw_etl_freshness` antes de decisão crítica (tools L2/L3).
+3. Agentes **leem** de `raw_*`/`mv_*`/`vw_*`/`public.*` em ZYONCS; **gravam** apenas em schema próprio (`atlas.*`, `hermes.*`, etc.).
+4. Adicionar nova fonte → registrar linha em `etl_sources` ANTES de criar a ingestão.
+5. Service-role key apenas no Vault Mac mini (DAEDALUS); agentes locais usam anon_key + RLS.
+6. ZYON.RH e LEX são deliberadamente isolados — auditor externo (FINEP, advogado) acessa cada um sob protocolo próprio.
+
+## Ações de formalização derivadas (Sprint 1, Fase 0)
+
+- [ ] `.env.example` em `15. IA AUTOMAÇÃO/zyon-agents/` com 3 pares Supabase
+- [ ] CLAUDE.md raiz ganha bloco "Data Lake Canônico"
+- [ ] `00. GESTÃO/Mapeamento 2026/DATA_LAKE_CANONICO.md` para Hélio/Geovani/auditoria
+- [ ] Migration `etl_runs` em ZYONCS (DAEDALUS)
+- [ ] Padrão `repo.py` replicado em todos os agentes (Sprint 2 de cada)
+
+## Pendências derivadas
+
+| Pendência | Quando |
+|---|---|
+| Migrar `cs_entregas_historicas` (legacy) para schema dedicado em ZYONCS apontando para `raw_esl.*` | Sprint 3 ATLAS |
+| Decidir se ZYON.TRNS (legacy) é mantido ou consolidado em ZYONCS | DAEDALUS |
+| Criar MVs `vw_*_consolidado` cross-domain (ex: `vw_motorista_completo` cruzando HERA + AEGIS + ROBERVAL) | Sprint 3 |
+| Lint check em CI: tools L2/L3 sem `check_freshness()` falham build | DAEDALUS Sprint 2 |
+
+## Ver também
+
+- `torre_fontes_canonicas.md` — catálogo `etl_sources` da Torre + 17 fontes
+- `esl_caminho_oficial_extracao.md` — 4 caminhos ESL automatizáveis
+- `atlas_nfe_compras_pipeline.md` — pipeline modelo replicar para outros reports
+- `zyon_agents_oficial.md` — decisão Python wins sobre TS
+- `multi_machine_setup.md` — Mac mini = produção 24/7
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zyoncs_data_lake_canonico.md</code></em></small>

@@ -1,0 +1,158 @@
+---
+title: "ESL Cloud — XMLs SEFAZ de NFs de Compra (Ícoro destinatária)"
+description: "ESL TEM 2 caminhos para NFs de fornecedor — (1) Data Export 6728 entrega XLSX com 37 colunas de DADOS estruturados (sem XML); (2) endpoint web `POST /purchase/invoices/download_nfes` entrega ZIP com XMLs SEFAZ (nfeProc autenticado se NF confirmada, resNFe resumo se só manifestada). Confirmado 2026-05-09 com chamada real e ZIP de 164 NFs reais."
+---
+# ESL Cloud — Report COMPRAS XML
+
+## Achado central (revisado 2026-05-09 após teste real)
+
+A UI **Compras → Integrações → Notas de Compra** (`/purchase/invoices`) lista as NF-e que Ícaro recebe como destinatária. O botão **Exportar** dispara o template **COMPRAS XML** (id 6728, grupo DIRETORIA RGO).
+
+**O nome "COMPRAS XML" é cosmético.** O template retorna **XLSX com dados estruturados** (37 colunas: fornecedor, endereço, itens, impostos, contas a pagar) — **NÃO o XML SEFAZ**. Verificado:
+- Download do job 1170799 (71 linhas, 9 dias): arquivo `compras-xml_2026_05_09_15_14.xlsx`, 18.5 KB, header `Fornecedor/Nome ... Contas a Pagar/Valor pago`. Sem coluna `xml` ou chave NFe.
+- "Adicionar Campos" no template, filtro `xml` → **zero resultados** no schema da raiz `purchase_storage_invoice`.
+- Listagem `/api/analytics/reports?root=purchase_storage_invoice` → único template é o 6728.
+
+**Para baixar XML SEFAZ bruto, ESL Data Export NÃO é caminho.** Usar **SEFAZ DFe** direto com cert A1 PJ Ícoro (Vault).
+
+**Report ID: 6728** (`/analytics/reports/6728/edit`)
+
+## Schema do template (confirmado via DOM)
+
+- `analytics_report[name]` = `COMPRAS XML`
+- `analytics_report[root]` = **`purchase_storage_invoice`** ← chave canônica
+- `analytics_report[report_group_id]` = `1772` (DIRETORIA RGO)
+- `analytics_report[joins_count]` = `4`
+
+## Filtros disponíveis (snake_case)
+
+Form key: `storage_invoices[*]`
+
+| Filtro UI | Key form | Tipo |
+|---|---|---|
+| Data | `storage_invoices[emission_at]` | range `dd/mm/yyyy - dd/mm/yyyy` |
+| Fornecedor | `storage_invoices[issuer]` | int (id) |
+| Filial (Destinatário) | `storage_invoices[recipient]` | int (id) |
+| Status Financeiro | `storage_invoices[debit_status]` | enum |
+| Tipo | `storage_invoices[type]` | enum (truncado, confirmar) |
+| Tipo Nota | `storage_invoices[invoice_type]` | enum (truncado) |
+| Nº Documento | `storage_invoices[number]` | string |
+
+## Como disparar via API REST (mesmo padrão de `esl_data_export_api.md`)
+
+```http
+POST https://icaro.eslcloud.com.br/api/analytics/reports/6728/export
+Authorization: Bearer {ESL_TOKEN}    # vault.decrypted_secrets.ESL_TOKEN
+Content-Type: application/json
+
+{
+  "export_to_ftp": false,
+  "search": {
+    "storage_invoices": {
+      "emission_at": "01/05/2026 - 09/05/2026"
+    }
+  }
+}
+```
+
+Resposta esperada: `{ id, status: "enqueued", show_url, download_url: null }` (igual aos outros reports).
+
+Pollar `show_url` → quando `download_url != null`, baixar (S3 pré-assinado — sem Authorization header).
+
+## Campos retornados (37 colunas confirmadas)
+
+Estrutura completa do XLSX (verificada com job real 1170799):
+
+```
+Fornecedor: Nome, Nome fantasia, Documento (CNPJ 14 chars),
+  Inscrição estadual, Inscrição municipal, Telefone, Celular
+Endereço principal: Logradouro, Número, Complemento, CEP, Bairro
+Itens da Nota Fiscal: Tipo (Entrada), Qtde, Vl. Unitário, Vl. Desconto, Vl. Total,
+  % ICMS, % IPI, Vl. ICMS, Vl. IPI, Bc ICMS, Vl. ICMS ST, % ICMS ST, Bc ICMS ST,
+  Data criação, Data atualização
+Contas a Pagar: Mês de Competência, N° Documento, Emissão, Ano de Competência,
+  Competência, Valor, Acréscimo, Desconto, Valor a pagar, Valor pago
+```
+
+**Sem chave NFe (44 dígitos), sem XML.** Para auditoria fiscal completa precisa SEFAZ DFe.
+
+## Restrição operacional descoberta
+
+Na UI, só dá pra exportar XMLs de NFs **com NF Entrada manifestada** (ícone verde ✓ na coluna "NF Entrada"). NFs ainda pendentes de "Ciência da operação" / "Confirmação da operação" mostram checkbox cinza desabilitado e o botão Exportar retorna modal "Atenção: Selecione apenas notas que podem ser exportadas".
+
+Implicação: o ingestor precisa rodar **manifesto SEFAZ DENTRO do ESL** antes de exportar, OU complementar com SEFAZ DFe direto via cert A1 PJ Ícaro.
+
+## Dado real observado (2026-05-09)
+
+Tela `/purchase/invoices` filtro padrão "02/05/2026 - 09/05/2026" mostrou 89 NFs. Top 3 fornecedores: Comercial Automotiva, Rodo Posto, Posto Oeste, Posto Bezerra (combustível dominante — esperado para transportadora). Dos 89, **apenas 1 estava com NF Entrada verde** (MB FREIOS NF 2441) — taxa de manifesto baixíssima, processo manual.
+
+Última exportação rodada: `/analytics/report_files/1170733` (31 min antes do mapeamento, status "processado com sucesso").
+
+## ENDPOINT REAL DE XML (descoberto 2026-05-09 via reverse engineering UI)
+
+```
+POST https://icaro.eslcloud.com.br/purchase/invoices/download_nfes
+Authentication: cookie de sessão `_eslcloud_session` + `X-CSRF-Token` (NÃO bearer ESL_TOKEN — esse retorna 401)
+Content-Type: application/json
+Body: {"ids": [<internal_invoice_id>, ...]}
+
+Resposta: 200 OK, body curto (~12 chars), job enfileirado
+```
+
+Após ~5-10s, aparece nova entrada em `GET /user_notifications.json` com:
+- `title: "Notas de Compra"`
+- `level: "success"`
+- `link`: URL S3 pré-assinada (`eslcloud.s3.sa-east-1.amazonaws.com/icaro/user_file/paperclips/{sha1}/{ddmmyyyyhhmmss}.zip`)
+- `user_file_id`: id interno do UserFile model
+
+## Tipo de XML retornado depende do estado da NF
+
+| Estado UI | Coluna NF Entrada | Coluna Status | XML retornado |
+|---|---|---|---|
+| Manifestada + Confirmada | ✓ verde | ✓ verde | **`<nfeProc>`** completo (NFe + Signature XMLDSig + protNFe.infProt cStat=100) — XML SEFAZ AUTÊNTICO |
+| Manifestada, não confirmada | ✓ verde | ⚠ amarelo | `<resNFe>` (resumo: chave + valor) — NÃO é XML autêntico, faltam dados |
+| Não manifestada | ⓘ cinza | ⓘ cinza | **bloqueado** — modal "Selecione apenas notas que podem ser exportadas" (validação client-side) |
+
+Validação no front roda em JS (não em backend). Para ter XML completo de uma NF, precisa primeiro **executar "Confirmação da operação"** (ação por linha ou em massa).
+
+## Como obter ID interno da NF
+
+Cada linha da tabela tem `<tr data-id="{internal_id}">` e o checkbox tem `value="{internal_id}"`. Não é a chave NFe (44 dígitos) nem o número da NF — é PK interna do ESL. Exemplo testado: NF número 2441 (MB FREIOS) → internal_id `489859`.
+
+Para automação, recomenda-se cruzar com Data Export 6728 ou via list `/purchase/invoices?...` (HTML scraping ou JSON variant).
+
+## Validação real (2026-05-09)
+
+- Disparei `POST /purchase/invoices/download_nfes` com `{ids:[489859]}` via fetch com cookie → 200 OK
+- Aguardei 8s → nova notificação id=5865047, ufid=3573465
+- Baixei ZIP do S3 (`PK\x03\x04` magic, 546 bytes)
+- Descompactei → 1 arquivo XML `<resNFe>` 537 bytes (NF estava status amarelo)
+- Comparado com 164 XMLs já baixados pelo usuário (todos `<nfeProc>` autênticos com Signature) — confirma que estado da NF determina formato
+
+## Combinação ATLAS recomendada
+
+1. **Data Export 6728** → tabela `nfe_compras` (37 campos: fornecedor, itens, impostos, AP)
+2. **`/purchase/invoices/download_nfes`** → tabela `nfe_compras_xml` (campo `xml_raw`, `xml_tipo` ∈ {`nfeProc`, `resNFe`})
+3. **SEFAZ DFe direto** (cert A1 do Vault) → fallback para NFs ainda não no ESL ou para XMLs autênticos quando ESL só tem resNFe
+4. Match por `chave_nfe` (44 dígitos)
+
+## Fluxo de auth para automação
+
+ESL_TOKEN (Bearer) é só para `/api/*` (GraphQL + Data Export). Para rotas web (`/purchase/invoices/download_nfes`, `/user_notifications.json`) precisa cookie de sessão. Pattern para ingestor:
+
+1. POST `/users/sign_in` com email+senha (Vault) → recebe `_eslcloud_session` cookie
+2. GET `/purchase/invoices?...` para listar IDs internos (parsear HTML ou JSON variant)
+3. POST `/purchase/invoices/download_nfes` com cookie + CSRF → enfileira
+4. Polling `/user_notifications.json?per_page=10` → encontra nova `title="Notas de Compra"` com `link` S3
+5. Download ZIP → unzip → `nfeProc`/`resNFe` por chave 44 díg
+6. Persistir em `nfe_compras_xml` com `xml_tipo`
+
+## Memória relacionada
+
+- `esl_data_export_api.md` — API REST genérica (4 passos, gotchas)
+- `esl_graphql_lookup.md` — GraphQL para metadata de freight/individual
+- `compliance_fici_arquitetura.md` — cert A1 PJ Ícoro (Vault) — usar para SEFAZ DFe
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>esl_compras_xml_report.md</code></em></small>

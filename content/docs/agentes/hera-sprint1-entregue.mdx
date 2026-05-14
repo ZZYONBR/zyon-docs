@@ -1,0 +1,34 @@
+---
+title: "HERA Sprint 1 entregue (read-only)"
+description: "HERA Sprint 1 entregue 2026-05-09 — 4 tools L1 + schema hera.* em ZYON.RH + smoke test verde via MCP; importer Sage real e smoke Python pendentes Sprint 2"
+---
+**Estado em 2026-05-09**: HERA Sprint 1 entregue.
+
+**O que ficou pronto**
+
+- Schema `hera.*` aplicado em **ZYON.RH** (project_id `hzvcimkejrtcagbvusxt`, sa-east-1) — 4 tabelas (`colaboradores`, `folha_pagamento`, `certificacoes_validade`, `turnover_eventos`) + 1 view (`vw_headcount_atual`) + RLS habilitada para `service_role`.
+- 4 tools L1 read-only em `zyon-agents/hera/tools/`: `headcount`, `turnover`, `organograma`, `custo_pessoal`. Pydantic inputs validam filiais canônicas (11 + RIO apelido) e período `YYYY-MM`. Saídas em JSON e Markdown (param `response_format`).
+- 44 testes unitários verdes com `FakeSupabase` em memória (30 colab. mock JOI/SAO/CPQ/RIO).
+- LGPD: `cpf_hash` SHA-256 obrigatório (CHECK constraint 64 chars); `salario_base`/`liquido` documentados como L2+; `custo_pessoal` agrega buckets com mínimo 3 colab. (anti-reidentificação) e nega individual sem `auth_level="L2"`.
+- Smoke test real via MCP `execute_sql` contra ZYON.RH: 30 colab. seed, headcount=29 ativos pós-desligamento 0022, turnover anualizado 81,36%, custo JOI abr/2026 R$ 101.900,00.
+- Orchestrator real substitui stub; carrega prompt de `prompts/system_v1.md` (conhece R1+POS-001 Luan/Loyalty, Lei 13.103, Aline/Jeferson, brand ZZYON).
+
+**Why:** desbloqueia ATLAS (custo pessoal vai pra DRE filial), ATENA (consome turnover de gestores), e estabelece base do AEGIS (motoristas com `e_motorista=true` + certificações ANTT/MOPP/TOXICO/EAD).
+
+**How to apply:**
+- Antes de mexer em RH/HERA: ler README atualizado e este arquivo.
+- Schema vive em **ZYON.RH** (não confundir com ZYONCS, que é ATLAS). DDL idempotente em `zyon-agents/hera/migrations/001_hera_core.sql`.
+- Smoke test Python contra Supabase real ainda não rodou — `.env` SUPABASE_URL aponta para projeto diferente (`lyilzvdlvashdxwrttmw`, não listado nos projetos visíveis). Hélio precisa configurar `SUPABASE_URL`/`SUPABASE_KEY` apontando para `hzvcimkejrtcagbvusxt` antes do Sprint 2 (ou criar pares `SUPABASE_RH_URL`/`SUPABASE_RH_KEY` separados).
+- Caso aplicar DDL em outro projeto: refazer e revalidar. ZYONCS foi tocado por engano e revertido (`DROP SCHEMA hera CASCADE` em hbrvoairynwsliyxxgsg).
+- Tests rodam com `uv run pytest hera/tests/ -v` ou `python -m pytest hera/tests/ -v` no venv.
+
+**Pendente Sprint 2:**
+- Importer Sage CSV real (cp1252, sep `;`) em `hera/ingestors/sage_csv.py`.
+- `simular_dissidio(percentual, data_base)` tool.
+- RLS refinada com roles `hera_l1_reader` / `hera_l2_writer` / `hera_l3_admin`.
+- Auditoria `hera.audit_log`.
+- Decisão LGPD: hash vs criptografia (Aline).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>hera_sprint1_entregue.md</code></em></small>

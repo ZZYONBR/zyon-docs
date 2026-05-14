@@ -1,0 +1,97 @@
+---
+title: "ZZYON LEX — cron sync_datajud no Mac mini"
+description: "launchd com.zzyon.lex.syncdatajud roda diariamente 06h em /Users/rubens/zyon-agents no Mac mini; código sincronizado via rsync do MacBook Pro"
+---
+**Deploy live em 2026-05-06.**
+
+## Identificação
+| Item | Valor |
+|---|---|
+| Label launchd | `com.zzyon.lex.syncdatajud` |
+| Plist source | `~/zyon-agents/themis/scripts/launchd/com.zzyon.lex.syncdatajud.plist` |
+| Plist instalado | `~/Library/LaunchAgents/com.zzyon.lex.syncdatajud.plist` (Mac mini) |
+| Schedule | diário 06:00 (StartCalendarInterval) |
+| Comando | `.venv/bin/python -m themis.scripts.sync_datajud` |
+| WorkingDir | `/Users/rubens/zyon-agents` |
+| Logs stdout | `~/zyon-agents/logs/sync_datajud.out` |
+| Logs stderr | `~/zyon-agents/logs/sync_datajud.err` |
+| Timeout hard | 600s |
+| Throttle | 60s |
+
+## Mac mini state
+- Hostname: `Mac-mini-de-Rubens.local`
+- Tailscale: `100.65.23.99`
+- User: `rubens` (não `rubens2` como no MacBook Pro)
+- Código: `/Users/rubens/zyon-agents/` (Python 3.13 venv em `.venv/`)
+- `.env` tem `SUPABASE_URL/KEY` (ZYONCS legado) **+** `SUPABASE_LEX_URL/KEY` (zzyon-lex)
+
+## Fluxo de deploy
+
+Quando o `themis/` mudar no MacBook Pro:
+```bash
+# Do MacBook Pro
+cd "/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/zyon-agents"
+rsync -avz --exclude '__pycache__' --exclude '.pytest_cache' \
+  themis/ rubens@100.65.23.99:/Users/rubens/zyon-agents/themis/
+```
+
+Se o plist mudar, recarregar:
+```bash
+ssh rubens@100.65.23.99 '
+  cp ~/zyon-agents/themis/scripts/launchd/com.zzyon.lex.syncdatajud.plist ~/Library/LaunchAgents/
+  launchctl unload ~/Library/LaunchAgents/com.zzyon.lex.syncdatajud.plist
+  launchctl load -w ~/Library/LaunchAgents/com.zzyon.lex.syncdatajud.plist'
+```
+
+## Operação
+
+### Trigger manual (kickstart moderno)
+```bash
+ssh rubens@100.65.23.99 'launchctl kickstart -k gui/$(id -u)/com.zzyon.lex.syncdatajud'
+```
+
+### Ver últimos logs
+```bash
+ssh rubens@100.65.23.99 'tail -50 ~/zyon-agents/logs/sync_datajud.err'
+```
+
+### Verificar status
+```bash
+ssh rubens@100.65.23.99 'launchctl list com.zzyon.lex.syncdatajud'
+# LastExitStatus = 0 → ok
+```
+
+### Desinstalar (raro)
+```bash
+ssh rubens@100.65.23.99 '
+  launchctl unload ~/Library/LaunchAgents/com.zzyon.lex.syncdatajud.plist
+  rm ~/Library/LaunchAgents/com.zzyon.lex.syncdatajud.plist'
+```
+
+## Coexistência com outros plists ZZYON
+- `com.zzyon.ra1000.weekly` — weekly digest RA1000
+- `com.zzyon.ra1000.keepalive` — keepalive Cláudio
+- `com.zzyon.lex.syncdatajud` — NOVO
+
+Padrão de naming: `com.zzyon.<produto>.<job>`. Para THEMIS jurídico = `com.zzyon.lex.<job>`.
+
+## Comportamento esperado
+- 06:00 diário: cron dispara
+- Itera todos processos em `themis.processos` com status != arquivado_definitivo
+- Consulta DataJud por CNJ (10k req/5min/tribunal)
+- Persiste novas movimentações em `themis.movimentacoes`
+- Emite alertas em `themis.alertas` em caso de delta
+- Grava audit em `themis.audit_log`
+- Encerra com exit 0 (ou >0 se houve erros — log captura)
+
+**Why:** Mac mini é prod 24/7 (memória `multi_machine_setup`). MacBook Pro é dev — não roda cron permanentemente.
+
+**How to apply:**
+- Sempre rodar testes locais no MacBook Pro primeiro.
+- Usar rsync para deploy do `themis/` (não pull git, porque ainda não há commit).
+- Quando mudar o cron schedule, editar plist source no repo, rsync, unload+load.
+- Logs ficam **no Mac mini** em `~/zyon-agents/logs/sync_datajud.{out,err}` — não no MacBook Pro.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zzyon_lex_cron_macmini.md</code></em></small>

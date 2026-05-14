@@ -1,0 +1,107 @@
+---
+title: "Ícaro — Grupos Econômicos Canônicos (consolidação por radical CNPJ)"
+description: "Tabela canônica de grupos econômicos confirmada por Rubens em 09/05/2026 a partir do extrato ESL FAT. Aplica a HERMES.clientes, ÍCARUS NPS, ATLAS rentabilidade, MOHAMED radar concentração. Whirlpool consolidado = 31,7% do faturamento (1/3 do negócio)."
+---
+Cadastro institucional de grupos econômicos da Ícaro Express, decididos por Rubens em 2026-05-09 a partir do extrato ESL `frete_relacao_sintetico_09-05-2026_19-14.csv`. **É fonte de verdade** até Geovani fornecer planilha oficial de CNPJs.
+
+## Princípio: radicais de CNPJ definem grupo
+
+Razões fiscais com mesmo radical de CNPJ (8 primeiros dígitos) ou nome canônico compartilhado são **um único grupo econômico** para efeito de:
+- HERMES `hermes.clientes` (grupo_economico, razoes_fiscais[])
+- ÍCARUS NPS (1 pesquisa por grupo, não por razão)
+- ATLAS rentabilidade (margem agregada por grupo)
+- MOHAMED radar de concentração
+
+## Tabela canônica (decisão Rubens 09/05/2026)
+
+| Grupo Canônico | Padrões (radical/nome) | Categoria |
+|---|---|---|
+| **WHIRLPOOL** | "WHIRLPOOL" + "MLOG ARMAZEM" + "BUD COMERCIO" | âncora-crítico |
+| DENTSCARE | "DENTSCARE" | alto-vol |
+| OBR | "OBR -" + "OBR HIDRAULICA" + "OBR AUTOMACAO" + "OBR ISOLANTES" + "OBR EQUIPAMENTOS" | alto-vol |
+| LABORATORIO CATARINENSE | "LABORATORIO CATARINENSE" | regular |
+| ANGELONI | "ANGELONI" + "SUPERMERCADOS ANGELONI" + "LOJAS ANGELONI" | alto-vol |
+| SERGIO PNEUS | "SERGIO PNEUS" | regular |
+| FGM HOME CARE | "FGM HOME CARE" | farma |
+| DELLAMED | "DELLAMED" | farma |
+| 121 SMART SHOP | "121 SMART SHOP" | regular |
+| STI COMPUTADORES | "STI COMPUTADORES" | alto-vol |
+| IBIZA | "IBIZA" | alto-vol |
+| DAROS CORP | "DDAROS CORP" + "DAROS CORP" | regular |
+| RMC TRANSPORTES | "RMC TRANSPORTES" | regular |
+| MUELLER | "MUELLER FOGOES" + "MUELLER ELETRODOMESTICOS" | alto-vol |
+| BRITANIA | "BRITANIA" | alto-vol |
+| LP COMÉRCIO ELETRÔNICOS | "LP COMERCIO DE ELETRONICOS" | regular |
+| KULZER BRASIL | "KULZER BRASIL" | farma |
+| HEROES COLECIONÁVEIS | "HEROES COMERCIO" | regular |
+| MINELAB | "MINELAB DO BRASIL" | alto-val |
+| PICHAU | "PICHAU" | âncora |
+| AROMITALIA | "AROMITALIA" | âncora |
+| ENVISTA | "ENVISTA" | âncora |
+| WEBMED | "WEBMED" | âncora |
+| BAGAGGIO | "BAGAGGIO" | âncora |
+| ELG | "ELG PEDESTAIS" + "ELG COMERCIO DE ELETRONICOS" | âncora |
+| **EUROSTAR** | "EUROSTAR" + "LAQUILA" (**mesma empresa**, Rubens 10/05/2026 — LAQUILA nao aparece em fretes; ESL captura sob EUROSTAR DO BRASIL S/A. CNPJ radical 03902443). **EMBARCA DA FILIAL `1.04 ICARO PR` (Curitiba)** — Rubens 10/05/2026. Origem aparece corretamente em `mgmt_fat_jc_staging.filial`; em `cs_entregas_historicas.filial` (fonte FAT_JC) o campo guarda agente/destino, NÃO origem. | alto-vol R$16M total NF, ~R$95k/mes receita real (ref planilha jan-abr/2026) / churn ALTO -59% volume em 10/05/2026 |
+| **BUHLER** ⭐ v3 | "BUHLER" (Scherler S.A. + Curitiba + do Brasil) | Rubens v3 09/05 |
+| **BINARIO** ⭐ v3 | "BINARIO" (Cloud + Distribuidora + SP) | Rubens v3 09/05 |
+| **LOFT** ⭐ v3 | "LOFT" (Brasil Tecnologia + Soluções Financeiras) | Rubens v3 09/05 |
+| VICTORY | "VICTORY" (perfumes) | Inferido v3 |
+| NIONLUX | "NIONLUX" | Inferido v3 |
+| POLO LOGISTICA | "POLO LOGISTICA" | Inferido v3 |
+| VENTISOL | "VENTISOL" | Inferido v3 |
+| WHITENESS | "WHITENESS" | Inferido v3 |
+| **CRONOS** | "CRONOS LOGISTICA" — **parceiro aéreo internacional**. Cronos PAGA a Ícaro pelo trecho rodoviário até aeroporto (receita real Ícaro). Carga real é FGM/Dentscare. **Leitura A confirmada Rubens 09/05**. | Rubens v3 |
+
+## Concentração (TOP 30, v2 com grupos)
+
+- WHIRLPOOL = **31,7%** do frete total (R$ 4,12M de R$ 12,98M) — 1/3 do negócio
+- TOP 3 = 46,0% (Whirlpool + Pichau + Intelbras)
+- TOP 5 = 54,2%
+- TOP 10 = 65,9%
+- TOP 30 = 88,7%
+- 7 âncoras ZZYON (Whirlpool/Pichau/Aromitalia/Envista/WebMed/ELG/Bagaggio) = 52,7% do faturamento
+
+## Categorias e SLAs
+
+| Categoria | Critério | SLA NPS | Escalação |
+|---|---|---|---|
+| âncora-crítico | Apenas Whirlpool | NPS mensal obrigatório | 4h crítico |
+| âncora | Pichau, Aromitalia, Envista, WebMed, ELG, Bagaggio | NPS trimestral obrigatório | 24h |
+| alto-vol | >500 fretes ou volume relevante | NPS semestral | 48h |
+| alto-val | Valor unitário alto, baixo volume | NPS opcional | 72h |
+| farma | Compliance ANVISA | NPS opcional + auditoria THEMIS | 72h |
+| regular | Sem flag especial | NPS opcional | normal |
+
+**Why:** sem essa tabela, HERMES classifica clientes errado, ÍCARUS dispara NPS para 9 razões fiscais Whirlpool em vez de 1 grupo, ATLAS reporta margem fragmentada, e MOHAMED não consegue calcular concentração real (que é 31,7% em Whirlpool, não 18,8% em MLOG isolado). Decisões financeiras e estratégicas dependem desta consolidação.
+
+**How to apply:**
+
+1. **HERMES Sprint 1**: schema `hermes.clientes` deve ter colunas `grupo_economico TEXT` + `razoes_fiscais TEXT[]` + `qtd_razoes_fiscais INT` + `categoria_volume TEXT`. Carregar SEED a partir de `SEED_CLIENTES_HERMES_ESL_2026-05-09.csv`.
+
+2. **ÍCARUS Sprint 2**: substituir fallback heurístico de `vw_cs_consolidado_top` por consulta direta a `hermes.clientes WHERE categoria_volume IN ('ancora-critico', 'ancora')` + top-N do `alto-vol`.
+
+3. **ATLAS Sprint 2+**: tool `margem_cliente` deve agregar por `grupo_economico`, não razão fiscal.
+
+4. **MOHAMED Sprint 8+**: briefing diário inclui radar Whirlpool (drift >3% = alerta, >10% = escalação Conselho).
+
+5. **CRONOS pendente**: até Rubens definir o grupo, fica como "CRONOS (PENDENTE_CONFIRMACAO_GRUPO)" com flag visível em todos os relatórios. Não tomar decisão automática.
+
+6. **Quando Geovani fornecer planilha oficial** (Sprint 2 HERMES): cruzar com esta tabela; conflitos prevalecem para Geovani (planilha oficial > inferência ESL); diferenças são logadas em `hermes.cliente_audit_log`.
+
+7. **Atualizar esta memória** quando:
+   - Cronos for definido
+   - Novos grupos aparecerem em extratos mensais
+   - Geovani fornecer planilha oficial e houver divergência
+
+8. **Não confundir**: razão fiscal individual (CNPJ específico) ≠ grupo econômico (categoria comercial). HERMES sempre opera por grupo.
+
+## Arquivos relacionados
+
+- `00. GESTÃO/Mapeamento 2026/TOP30_CLIENTES_ESL.md` (documento institucional v2)
+- `00. GESTÃO/Mapeamento 2026/SEED_CLIENTES_HERMES_ESL_2026-05-09.csv` (carga inicial HERMES)
+- `00. GESTÃO/Mapeamento 2026/TOP30_CLIENTES_PAGADOR_ESL_2026-05-09.csv` (top-30 ranqueado v2)
+- Memória `esl_caminho_oficial_extracao.md` (como extrair ESL)
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>icaro_grupos_economicos_canonicos.md</code></em></small>

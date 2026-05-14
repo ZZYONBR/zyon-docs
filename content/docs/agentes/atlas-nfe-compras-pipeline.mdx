@@ -1,0 +1,206 @@
+---
+title: "ATLAS — pipeline NFe de Compras (ESL + SEFAZ DFe)"
+description: "Pipeline ATLAS que ingere XMLs de NF-e onde Ícoro é destinatária. Schema atlas.nfe_compras_xml em ZYONCS (PK chave_nfe, função upsert idempotente com upgrade resNFe→nfeProc). Edge function atlas-nfe-compras-upsert ACTIVE. Ingestor esl_compras_xml deployed no Mac mini com launchd 04h15. SEFAZ DFe (sefaz_dfe.py) implementado, aguarda cert A1 .pfx no Vault."
+---
+## Atualização 2026-05-13 · sessão noite (A+B+C+D)
+
+**A. Tabela de itens + análise de preço unitário**
+- `atlas.nfe_compras_xml_itens` criada (FK chave_nfe, snapshot do header, índice trgm em descricao)
+- Backfill 2.943 itens das 1.520 NFs locais via edge function `atlas-nfe-itens-bulk` v2 (chama RPC `public.atlas_bulk_insert_itens`)
+- UPDATE classe_fiscal do header → item (OPEX 2.011 / CARGA 869 / CAPEX 15 / NAO_COMPRA 48)
+- Views: `atlas.vw_preco_unit_evolucao`, `atlas.vw_anomalias_preco`, `atlas.vw_fornecedor_comparativo`
+- **9 anomalias detectadas automaticamente** (Filme Stretch +47%, Diesel +25%, cesta básica)
+
+**B. Alertas de preço push (READY mas INATIVO)**
+- Tabelas: `atlas.alertas_preco_regras`, `atlas.alertas_preco_enviados`
+- Edge function `atlas-alertas-preco-push` v2 ACTIVE (lê via RPCs `atlas_get_regras_ativas`, `atlas_anomalias_para_alerta`, `atlas_registrar_alertas_enviados`)
+- Cron `atlas_alertas_preco_diario` foi UNSCHEDULED + regra DESATIVADA
+- **Pendência**: usuário precisa confirmar destinatários (Cidne whatsapp, Jean whatsapp via Vault) e ativar manualmente: `UPDATE atlas.alertas_preco_regras SET ativa = true` + recriar cron
+
+**C. Tool de pesquisa de alternativas**
+- `public.atlas_pesquisar_alternativas(descricao, ncm, uf, min_qtd)` retorna ranking de fornecedores OPEX por preço médio (fuzzy match via pg_trgm)
+- Testado: para DIESEL S10 retornou 8 fornecedores ordenados; Posto Fernão Dias (SP) R$ 5,89/L é o mais barato, Posto Ongarato (SP, alto consumo) R$ 6,59/L
+
+**D. Cartão frota — schema e minuta**
+- Tabela `atlas.cartao_frota_consumo` (placa, motorista, posto, litros, valor, hodometro, operadora enum)
+- Enums `cartao_frota_operadora` (TICKET_LOG/EDENRED/CONEXAO_CARD/...) e `cartao_frota_produto`
+- View consolidada `atlas.vw_combustivel_consolidado` (UNION NFe OPEX + cartão frota)
+- View gap `atlas.vw_combustivel_gap_mensal` (totais por fonte/mês)
+- Minuta WhatsApp para Cidne em `atlas/scripts/minuta_cidne_cartao_frota.md`
+
+## Descoberta crítica (não-conflitante)
+
+Há **outro agente/dev trabalhando no ATLAS em paralelo** — tabelas adicionais já existem em produção:
+- `atlas.compras_categoria_ncm` (categorização NCM)
+- `atlas.conciliacoes` + `atlas.conciliacoes_itens` (módulo conciliação parceiro)
+- `atlas.dedup_bauer_log` (regra Deutsche/Gol/Jadlog)
+- `atlas.dre_filial_history`
+- `atlas.kpi_financeiro_snapshot`
+- `atlas.nfe_compras_item` (variante singular — sobreposto com meu `nfe_compras_xml_itens`)
+- `atlas.parceiros_tabela_frete`
+- Funções: `atlas.fn_classify_pending_items`, `atlas.fn_lookup_categoria_ncm`, `atlas.fn_trigger_parse_nfe_item`
+- Crons ativos: `atlas_classify_pending_items_daily` (05h30), `atlas_parse_nfes_pending_hourly` (15min)
+- Edge function não-criada por mim: `atlas-parse-nfe-items`
+
+**Não toquei nesses artefatos**. Sessão futura precisa consolidar (e.g. unificar `nfe_compras_item` vs `nfe_compras_xml_itens`).
+
+## Migrations aplicadas nesta sessão
+
+- 008 clientes_ancora_corretos (CNPJs Pichau 09376495, Aromitalia 02607251, MLOG 05117268)
+- 009* nfe_itens_table + parse_xml (parser SQL via xpath funcionou parcialmente; backfill foi via edge bulk Python)
+- 010 atlas_bulk_insert_itens (RPC public)
+- 011 views_analiticas_preco
+- 012 alertas_preco_schema
+- 013 anomalias_rpc_e_cron (cron foi unscheduled depois)
+- 014 expose_alertas_to_public (RPCs `atlas_get_regras_ativas`, `atlas_registrar_alertas_enviados`)
+- 015 pesquisar_alternativas
+- 016 cartao_frota_schema
+
+## Edge functions criadas/atualizadas
+
+- `atlas-nfe-itens-bulk` v2 ACTIVE (importa lote de itens via RPC)
+- `atlas-alertas-preco-push` v2 ACTIVE (consome RPCs, dispara via Evolution; CRON desativado)
+
+## Pendências curtas
+
+- [ ] Mac mini offline — re-deploy `bash atlas/scripts/deploy_macmini.sh --no-test` quando voltar
+- [ ] Cidne responder questionário cartão frota → preencher minha tabela
+- [ ] Usuário autorizar alertas: validar dest (Cidne+Jean+Rubens) → `UPDATE alertas_preco_regras SET ativa=true` + recriar cron `atlas_alertas_preco_diario`
+- [ ] Consolidar `nfe_compras_item` vs `nfe_compras_xml_itens` em sessão dedicada (não pisar no outro agente)
+
+---
+
+## Atualização 2026-05-13
+
+**Descobertas críticas da análise gerencial v3 (base completa local):**
+- Pasta `~/Desktop/6. COMPRAS/xmlsCOMPRAS/` tem 3.052 XMLs em 22 subpastas + 17 ZIPs (não só `xmls/`)
+- Dedup por chave NFe → 1.520 NFs únicas, R$ 5,2M bruto em 7 meses
+- **~73% do valor bruto NÃO é compra real**: CARGA_CLIENTE (Whirlpool/Pichau/Angeloni transportando), CAPEX (Foton/Furgões/BYD), NAO_COMPRA (CFOPs 5949/5910/5202), INTER_FILIAL
+- **OPEX puro: R$ 1,42M em 7m → R$ 2,4M/ano (2,9% do faturamento)** — bate com transportadora
+
+**Cron 04h15 RODOU em 13/05** (07:15 UTC) — credenciais ESL ficaram disponíveis no Vault entre 09 e 13/05 sem intervenção minha. Tabela tem **1.664 NFs em produção** (1.661 do cron + 3 do smoke).
+
+**Migrations adicionadas (004-007):**
+- Coluna `classe_fiscal` enum (OPEX/CAPEX/CARGA_CLIENTE/INTER_FILIAL/NAO_COMPRA/NAO_CLASSIFICADA) + `classe_motivo`
+- View `atlas.vw_nfe_compras_opex` (DRE puro, sem ruído)
+- View `atlas.vw_nfe_compras_classes` (resumo)
+- Função SQL `atlas.classify_nfe_row(cnpj_emit, cnpj_dest, xml_raw)` — espelho do Python
+- **Trigger `tg_auto_classify_before_ins/upd`** — auto-classifica toda NF que entra como NAO_CLASSIFICADA (defesa em profundidade)
+- Função `atlas.upsert_nfe_compras_xml` v2 aceita os novos campos
+
+**Backfill 1.664 NFs executado**:
+- OPEX: 1.215 NFs · R$ 1,60M (29,7%)
+- CARGA_CLIENTE: 115 · R$ 1,79M (33,1%)
+- CAPEX: 12 · R$ 1,36M (25,1%)
+- NAO_COMPRA: 321 · R$ 519k (9,6%)
+- INTER_FILIAL: 1 · R$ 135k (2,5%)
+
+**Edge function v2 ACTIVE** — aceita classe_fiscal + classe_motivo.
+
+**Ingestor Python atualizado** (`atlas/ingestors/classifier.py`):
+- Lista de clientes-âncora (Whirlpool/Pichau/Angeloni) por CNPJ raiz
+- CFOPs NAO_COMPRA (5949/5910/5202/5411/5915/5922 etc)
+- NCMs CAPEX (8702/8703/8704/8716/8429/8427)
+- CFOPs CAPEX (1551/2551 etc)
+- ICARO_CNPJ_PREFIX = '06225952' → INTER_FILIAL
+- `enriquecer_record()` é chamado em `parse_zip()` (esl_compras_xml) e no `run()` do sefaz_dfe
+
+**Deploy Mac mini pendente** (Mac mini estava offline na hora). Sem urgência: trigger SQL garante classificação correta mesmo se cron de amanhã rodar com Python antigo. Refazer `bash atlas/scripts/deploy_macmini.sh --no-test` quando Mac mini voltar.
+
+**Gerencial v3 salvo em**:
+- `~/Desktop/6. COMPRAS/xmlsCOMPRAS/GERENCIAL_COMPRAS_v3_NOV-MAI_OPEX_PURO.md`
+- `zyon-agents/atlas/reports/2026-05-13_gerencial_compras_v3.md`
+
+---
+
+## Estado em 2026-05-09
+
+Stack completo em produção em ZYONCS (`hbrvoairynwsliyxxgsg`):
+
+### Schema (3 migrations aplicadas)
+- `atlas.nfe_compras_xml` (PK `chave_nfe` 44 dígitos)
+  - 25 colunas: cabeçalho NF + protocolo SEFAZ + xml_raw + metadata ingestão
+  - Enum `xml_tipo`: `nfeProc | NFe | resNFe`
+  - Enum `nfe_fonte`: `esl_compras_xml | sefaz_dfe | fornecedor_email | manual`
+- `atlas.nfe_compras_xml_runs` (auditoria)
+- `atlas.sefaz_dfe_state` (PK `cnpj`, last_nsu para paginação SEFAZ)
+- Função `atlas.upsert_nfe_compras_xml(jsonb)` idempotente — regras:
+  - INSERT se chave_nfe nova
+  - UPGRADE se incoming.autentico=true AND existing.autentico=false
+  - NOOP se existing.autentico=true (não regredir nfeProc → resNFe)
+  - REFRESH metadata leve no resto
+- Wrapper `public.atlas_upsert_nfe_compras_xml` SECURITY DEFINER (PostgREST)
+- View `atlas.vw_nfe_compras_gap_autenticidade` (NFs sem XML autêntico)
+
+### Edge function
+`atlas-nfe-compras-upsert` v1 ACTIVE
+- Auth: Bearer SERVICE_ROLE OR `x-atlas-token` (Vault `atlas_nfe_upsert_token`)
+- Body: `{records: [...]}` (max 500)
+- URL prod: `https://hbrvoairynwsliyxxgsg.supabase.co/functions/v1/atlas-nfe-compras-upsert`
+
+### Ingestor 1 — `atlas.ingestors.esl_compras_xml` (LIVE)
+- Deployed no Mac mini `~/zyon-agents/atlas/ingestors/`
+- launchd `com.zyon.atlas.compras` carregado, **04h15 diário** (próxima exec: amanhã)
+- Endpoint ESL: `POST /purchase/invoices/download_nfes` (cookie `_eslcloud_session` + CSRF)
+- Polling `/user_notifications.json` até `title="Notas de Compra"` + ZIP S3
+- Parser distingue `nfeProc` autêntico (Signature + cStat=100) de `resNFe` resumo
+- Cadastrado em `etl_sources` (id=18, freq 1440min, fonte_canonica=true)
+- **Bloqueio único antes do primeiro cron**: popular Vault com `esl_login_email` e `esl_login_password` (script SQL pronto em `atlas/scripts/setup_vault_esl_creds.sql`)
+
+### Ingestor 2 — `atlas.ingestors.sefaz_dfe` (PRONTO, aguarda cert)
+- Pipeline completo: load PFX → PEM (cryptography), SOAP envelope, mTLS (cert temp 600), parse base64+gzip, paginação NSU
+- Reusa `_parse_xml` e `upsert_nfe_compras` do irmão
+- Endpoint default: SVRS produção
+- **Bloqueio**: PFX cert A1 ainda não no Vault (`ICP_A1_PFX_B64`). CNPJ + senha PFX já estão (`ICP_A1_CNPJ`, `ICP_A1_PFX_PASSWORD`)
+- Cert A1 já comprado para FICI (memória `compliance_fici_arquitetura.md`) — só falta upload PFX
+
+### Smoke test passado (2026-05-09)
+3 XMLs reais (do ZIP que Rubens baixou manualmente — TERTEM 2× + JB AUTO PECAS)
+- Todos `nfeProc` autênticos com Signature XMLDSig + cStat=100
+- 3/3 inserted via `_atlas_smoke_test` (helper drop após uso)
+- Re-insert idempotente: `noop_keep_authentic` quando tenta regredir
+- Total: 25.392 bytes XML brutos persistidos, max_upgrades=0
+
+## Vault secrets relacionados (ZYONCS)
+- `ESL_TOKEN` (Bearer GraphQL/Data Export ESL — já existia)
+- `ESL_REST_TOKEN` (Bearer Data Export — já existia)
+- `atlas_nfe_upsert_token` (64 chars, gerado pra essa pipeline)
+- `ICP_A1_CNPJ`, `ICP_A1_PFX_PASSWORD`, `ICP_A1_RAZAO_SOCIAL`, `ICP_A1_RESPONSAVEL` (cert A1 FICI)
+- **A POPULAR**: `esl_login_email`, `esl_login_password`, `ICP_A1_PFX_B64`
+
+## Paths críticos
+- Repo: `~/Desktop/15. IA AUTOMAÇÃO/zyon-agents/atlas/`
+- Mac mini: `~/zyon-agents/atlas/`
+- Plist: `~/Library/LaunchAgents/com.zyon.atlas.compras.plist`
+- Logs: `~/zyon-agents/logs/atlas_compras.{out,err}`
+- Migrations locais (referência): `atlas/migrations/001_nfe_compras_xml.sql` etc
+- Edge fn local: `atlas/edge-functions/atlas-nfe-compras-upsert/index.ts`
+
+## Comandos úteis
+```bash
+# Re-deploy
+cd ~/Desktop/15.\ IA\ AUTOMAÇÃO/zyon-agents
+./atlas/scripts/deploy_macmini.sh
+
+# Forçar exec agora
+ssh rubens@100.65.23.99 'launchctl start com.zyon.atlas.compras'
+
+# Logs
+ssh rubens@100.65.23.99 'tail -f ~/zyon-agents/logs/atlas_compras.out'
+
+# Run manual com janela específica
+ssh rubens@100.65.23.99 'cd ~/zyon-agents && .venv/bin/python -m atlas.ingestors.esl_compras_xml --since 2026-04-01 --dry-run'
+
+# Query gap
+SELECT * FROM atlas.vw_nfe_compras_gap_autenticidade LIMIT 50;
+```
+
+## Memória relacionada
+- `esl_compras_xml_report.md` — endpoint reverse-engineered + tipos de XML por estado da NF
+- `compliance_fici_arquitetura.md` — cert A1 PJ Ícaro no Vault (FICI/Frota)
+- `multi_machine_setup.md` — Tailscale Mac mini (rubens@100.65.23.99)
+- `torre_fontes_canonicas.md` — etl_sources (atlas_nfe_compras_xml = id 18)
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>atlas_nfe_compras_pipeline.md</code></em></small>

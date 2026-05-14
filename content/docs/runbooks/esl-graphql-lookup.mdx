@@ -1,0 +1,130 @@
+---
+title: "ESL Cloud GraphQL — lookup automatizado pelo CPF (CONFIRMADO 2026-05-05)"
+description: "Endpoint GraphQL + token Vault + query individual(cpf) testada e funcionando via pg_net. Uso central no RA1000 para puxar endereço completo do destinatário."
+---
+# ESL Cloud GraphQL — Lookup automatizado
+
+## Endpoint
+- **URL:** `https://icaro.eslcloud.com.br/graphql`
+- **Auth:** `Authorization: Bearer <ESL_TOKEN>` — Vault `vault.decrypted_secrets` campo `name='ESL_TOKEN'` (54 chars, prefix `ECjbeympz2Ek`)
+- Existe também `ESL_REST_TOKEN` (54 chars, prefix `xzYy2yuQdcW_`) — usado pelo Data Export REST, NÃO pelo GraphQL.
+
+## Query confirmada — buscar destinatário pelo CPF
+
+```graphql
+query($p: IndividualInput!) {
+  individual(params: $p) {
+    edges {
+      node {
+        id
+        name
+        cpf
+        email
+        phoneNumber
+        mobileNumber
+        mainAddress {
+          line1
+          line2
+          number
+          postalCode
+          neighborhood
+          city { name state { code } }
+        }
+      }
+    }
+  }
+}
+```
+
+Variables: `{"p": {"cpf": "<CPF_SEM_PONTOS>"}}`
+
+## Como rodar via Postgres (pg_net) — pattern oficial RA1000
+
+```sql
+WITH token AS (SELECT decrypted_secret AS t FROM vault.decrypted_secrets WHERE name='ESL_TOKEN' LIMIT 1)
+SELECT net.http_post(
+  url := 'https://icaro.eslcloud.com.br/graphql',
+  headers := jsonb_build_object(
+    'Content-Type','application/json',
+    'Authorization','Bearer '||(SELECT t FROM token)
+  ),
+  body := jsonb_build_object(
+    'query', 'query($p:IndividualInput!){individual(params:$p){edges{node{id name cpf email phoneNumber mobileNumber mainAddress{line1 line2 number postalCode neighborhood city{name state{code}}}}}}}',
+    'variables', jsonb_build_object('p', jsonb_build_object('cpf', '<CPF_SEM_PONTOS>'))
+  )
+) AS request_id;
+```
+
+Aguardar 2-3s, depois:
+```sql
+SELECT
+  status_code,
+  content::jsonb -> 'data' -> 'individual' -> 'edges' -> 0 -> 'node' AS dados_destinatario
+FROM net._http_response WHERE id = <request_id>;
+```
+
+## Exemplo real testado em 2026-05-05
+
+CPF `28696129822` → retornou:
+```json
+{
+  "id": "84630441",
+  "name": "MARCO AURÉLIO DE MATOS PENSO",
+  "cpf": "28696129822",
+  "phoneNumber": "13997636642",
+  "mainAddress": {
+    "line1": "AVENIDA DIVISÓRIA 374",
+    "number": "374",
+    "postalCode": "11380220",
+    "neighborhood": "VILA SÃO JORGE",
+    "city": { "name": "São Vicente", "state": { "code": "SP" } }
+  }
+}
+```
+
+Cliente abriu RA dizendo cidade Santos/SP. Lookup ESL revelou destino real **São Vicente/SP** — corrigiu roteamento de filial.
+
+## Schema explorado (FreightInput)
+
+`FreightInput` aceita filtros:
+- `id` (ID)
+- `invoiceKey` (String — chave NF-e 44 dígitos)
+- `cteKey` (String — chave CT-e 44 dígitos)
+- `eslCode` (String)
+- `serviceAt` (String — data ISO)
+- `payerId` (Int)
+- `corporationId` (Int)
+
+**NÃO existe filtro por `recipientId`/`recipient`.**
+Conclusão: para puxar **fretes** a partir do CPF do destinatário, o caminho é
+1. `individual(cpf=X)` → pega `id` do destinatário (mas o tipo individual é a pessoa cadastrada, não o pedido)
+2. Pesquisar por NF-e key (44 dígitos) — geralmente o cliente passa só o número da NF, não a chave
+3. Para puxar peso/CTe/valor: gestor ainda precisa abrir no painel ESL com o CPF como busca
+
+## Queries da raiz (Query Type) — 55 disponíveis, relevantes:
+- `freight` — busca por id/invoiceKey/cteKey/eslCode (não por recipient)
+- `cte` — busca CT-e
+- `invoice` — busca NF (a confirmar quais filtros aceita)
+- `customerFreight`
+- `thirdPartyCte` — útil pra quando frete é repassado (caso Pedro/Risso)
+- `freightDeliveryReportAnalytical|Synthetic` — relatórios
+- `manifestAnalysisReportAnalytical|Synthetic`
+
+## O que ainda PRECISA gestor confirmar manualmente
+
+A query `individual(cpf)` traz tudo do destinatário (endereço, tel, email). NÃO traz peso, CTe Ícaro, valor NF, valor frete. Esses campos hoje exigem que o gestor abra ESL por CPF e copie. Pendência futura: extender o lookup automatizado pra rodar `freight` em série quando tivermos a NF-e key (44 dígitos).
+
+## Anti-padrões
+- NUNCA expor o token no log/output. Sempre puxar via `vault.decrypted_secrets` em SQL/edge function.
+- NUNCA confundir `ESL_TOKEN` com `ESL_REST_TOKEN`.
+- NUNCA prometer endereço diferente da NF/cliente — endereço da NF é fiscal. Se ESL trouxer divergente do RA, sinalizar (não silenciar).
+- NUNCA assumir que CPF do RA = CPF no ESL. Pode ser outro membro da família (caso Wallace=Mayara, Pedro=José Renato).
+
+## Memória relacionada
+- `esl_data_export_api.md` — REST API (relatórios XLSX, NÃO GraphQL)
+- `ra1000_acionamento_gestor_template.md` — template fixo de mensagem ao líder filial
+- `ra1000_pipeline_completo.md` — fluxo end-to-end RA1000 com chamadas pg_net
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>esl_graphql_lookup.md</code></em></small>

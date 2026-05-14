@@ -1,0 +1,30 @@
+---
+title: "METIS — agente de Qualidade e Excelência Operacional"
+description: "14º agente ZZYON criado 09/05/2026 (mesmo dia de ATENA, HEFESTO e DAEDALUS); 6º vertical; materializa cargo Gestor de Qualidade; titular humano formal Thais Heiler dez/2026; cobre POP/BPMN/RACI/NC/CAPA/ISO 9001/satisfação; SOFIA indexa, ATENA cobra"
+---
+METIS é o 14º agente operacional do ecossistema ZZYON (6º vertical), criado 2026-05-09 — mesmo dia em que nasceram ATENA (12º), HEFESTO (13º) e DAEDALUS (15º). Codinome grego: Métis (deusa da prudência e do método; mãe de Atena). Materializa o cargo formal de Gestor de Qualidade e Excelência Operacional descrito no R1 §3 / Projeto Excelência Operacional v4 da Ícaro Express.
+
+**Camada**: Vertical (junto de AEGIS, COSMOS, ÍCARUS, SOFIA).
+**Localização**: `/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/zyon-agents/metis/`.
+**Status atual**: esqueleto criado; orchestrator stub (`NotImplementedError`); README com 12 seções.
+**Sponsor**: Rubens. **Co-piloto interim** (até dez/2026): Luan. **Titular humano formal** (a partir dez/2026): Thais Heiler — Plano B do POS-001.
+
+**Escopo**: padronização de processos entre filiais (POPs versionados, BPMN textual, RACI), auditoria interna de aderência, gestão de não-conformidades (NC), planos CAPA (corretivo + preventivo), preparação ISO 9001, pesquisa de satisfação pós-entrega complementar ao NPS.
+
+**Tools previstas**: 9 — 4 L1 (`pop_status`, `radar_nao_conformidades`, `dashboard_qualidade`, `gap_analise_iso9001`), 4 L2 (`gerar_pop_draft`, `abrir_nc`, `plano_capa`, `pesquisa_satisfacao`), 1 L3 (`auditoria_filial`). Cross-agent: consome TORRE/ÍCARUS/AEGIS/THEMIS-LEX; produz para SOFIA (indexação RAG) e ATENA (cobrança de aderência).
+
+**Roadmap**: Sprint 5–6 (POPs dos 5 processos críticos: Recebimento, Expedição, Tráfego, RA, Conciliação parceiro), Sprint 9 (primeira auditoria interna em JOI), Sprint 10–11 (portal de NC + handoff SOFIA), Sprint 15+ (ISO 9001 audit-ready), dez/2026 (handoff a Thais).
+
+**Why**: o cargo de Qualidade hoje está órfão — parte acumulada com Luan (que já está sob R1 de transição), parte tangenciada por SOFIA (que indexa, não desenha). Mapeamento Fase 1 mostrou divergência operacional entre filiais nos 5 processos críticos, ausência de RACI formal e atividades órfãs (auditoria de RA, backup manifestos, alertas DCT/refrigerada). Plano B prevê Thais para Qualidade em dez/2026 — METIS é a infraestrutura que recebe Thais. ISO 9001 é meta institucional do Projeto Excelência v4.
+
+**How to apply**:
+- **Não confundir papéis**: METIS DESENHA o SOP, SOFIA INDEXA em RAG, ATENA COBRA aderência. Antes de propor que ATENA gere POP ou que SOFIA detecte NC, parar.
+- METIS nunca executa auditoria de campo: o gestor local executa; METIS audita o *resultado*.
+- Toda NC gera CAPA obrigatória (5 Por Quês + Ishikawa textual + ações com responsável + prazo + verificação de eficácia).
+- Pesquisa de satisfação METIS é distinta do NPS de ÍCARUS: foco em qualidade percebida do *processo*, não em relacionamento comercial.
+- ISO 9001 só Sprint S15+ — antes disso, POPs e CAPA têm que estar maduros.
+- Aderência baixa a POP ⇒ revisar o desenho antes de cobrar o gestor (princípio "POP que ninguém segue é falha de METIS").
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>metis_agente_qualidade.md</code></em></small>

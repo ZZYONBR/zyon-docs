@@ -1,0 +1,59 @@
+---
+title: "torre-nextday — plataforma fechamento NextDay W-HOUSE"
+description: "ZZYON NextDay live em https://nextday.zzyon.com — Onda 1 entregue 2026-05-09 (Operação ao Vivo + conciliação automática)"
+---
+## ZZYON NextDay — torre-nextday
+
+**Live em produção** desde 2026-05-09: https://nextday.zzyon.com
+
+**Stack**: Vite + vanilla JS + Supabase (mesmo padrão de torre-lex). Repo: `zzyon-platform/torre-nextday/`.
+
+**Vercel**: project `prj_eHIcPVUA2ek9f6fl7LqoPUv7GK6C` no team `team_zwRh7y1lx7b3jOln8FEt5Lop`. DNS via wildcard `*.zzyon.com → cname.vercel-dns.com` (Google Cloud DNS).
+
+**Auth**: magic link via Supabase ZYONCS (`hbrvoairynwsliyxxgsg`), gate `@icaroexpress.com`. Site URL e Redirect URLs configurados em 09/05/2026 — funcional.
+
+## Backend (schema nextday_sp em ZYONCS)
+
+**Views públicas** (proxies em `public.*` com `security_invoker`):
+- `nextday_vw_nfs_em_aberto` — bucket `risco_real | a_conciliar_entregue | a_conciliar_devolvida`
+- `nextday_vw_dashboard_kpis` — KPIs decompostos
+- `nextday_vw_reconciliacao_log` — auditoria
+
+**Conciliação automática**:
+- Função `nextday_sp.fn_reconciliar_em_aberto(p_dry_run)` com gate JWT email + RPC pública wrapper
+- Função interna `fn_reconciliar_em_aberto_internal(executor)` para cron/trigger
+- Trigger statement-level `trg_reconciliar_pos_etl` AFTER INSERT em `etl_runs` (executor: `etl_trigger`)
+- Cron pg_cron `nextday_reconciliar_diario` às 09:30 UTC = 06:30 BRT (executor: `cron_diario`)
+- Tabela `reconciliacao_log` com snapshot JSONB completo
+
+**Bug crítico resolvido**: `fretes.status_entrega` é coluna GENERATED — não pode ser updated diretamente. UPDATE precisa mexer em `data_entrega` e `ultima_ocorrencia` (status recalcula via expressão CASE).
+
+**Bug crítico 2**: `DISTINCT ON (nf)` deixa registros duplicados. UPDATE deve usar `WHERE f.nf = a.nf AND status_entrega = 'em_aberto'` (não por id).
+
+## Estado dos dados (validado 09/05/2026)
+
+| Bucket | Qtd | Mercadoria | Frete |
+|---|---|---|---|
+| Risco real | 24 | R$ 89.410,14 | R$ 2.727,96 |
+| A conciliar (entregue) | 0 | R$ 0 | (todas baixadas) |
+
+10 NFs / R$ 47.627 já foram baixadas automaticamente pela trigger.
+
+## Marca
+
+- Brand colors **oficiais** Manual v1.0: Deep Navy `#05081C`, ZZYON Navy `#0A0E27`, ZZYON Blue `#3B6EFF`, Surface `#F5F7FA`, Pure White `#FFFFFF`
+- Apoio: Navy Soft `#161A38`, Blue Deep `#1E3FCC`, Blue Light `#6B8FFF`, Muted `#8086A8`
+- Status: Success `#1AB36D`, Warning `#F2A93B`, Error `#E53935`
+- Tipografia: Inter primária, JetBrains Mono pra dashboards
+- Logo `nd-logo.js` reproduz `logo-mark.svg` oficial com ponto-órbita `#3B6EFF`
+- Sem emojis, voz sóbria
+
+## Roadmap (próximas ondas)
+
+- **Onda 2**: Fechamento Mensal — assistente FAT_JC → cálculo Custo Fixo + HE + KM + Reentregas + Diesel + ICMS/ISS → export VOO PREMIUM
+- **Onda 3**: Reentregas + Diesel & Reajustes
+- **Onda 4**: Auditoria + ETL ESL automático + alertas WhatsApp via Cláudio
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>torre_nextday_plataforma.md</code></em></small>

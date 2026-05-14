@@ -1,0 +1,27 @@
+---
+title: "Auto-FICI · arquitetura ICP-A1 + Vault"
+description: "Cert A1 PJ ICARO EXPRESS no Supabase Vault, edge fn frt-fici-generator assina PDFs DETRAN/SC server-side"
+---
+**Decisão:** Auto-FICI usa Opção A (Supabase Vault), não Opção B (Mac mini cron).
+
+**Cert ICP-Brasil A1:** precisa ser **A1 PJ ICARO EXPRESS LOGISTICS LTDA** (CNPJ 06.225.952/0001-XX). PF Rubens NÃO serve — DETRAN pode rejeitar por divergência entre signatário e proprietário do veículo nos AITs.
+
+**Vault keys planejadas:**
+- `ICP_A1_PFX_B64` — .pfx codificado base64
+- `ICP_A1_PFX_PASSWORD` — senha do cert
+
+**Edge function:** `frt-fici-generator`
+- Baixa cert do Vault em runtime
+- Assina PDF via `node-signpdf` portado pra Deno
+- Sobe assinado no Supabase Storage
+- Marca status=assinada no banco
+
+**Why:** assinatura serverless desacopla do uptime do Mac mini, permite reuso por Themis (jurídico) e Atlas (contratos). Vault é AES-256, só decrypta em execução.
+
+**How to apply:** quando user passar o .pfx + senha, fazer base64 + upload no Vault, deployar edge fn. Antes do cert chegar, manter Onda 3 (preditiva) em paralelo.
+
+**Status atual (2026-05-03):** aguardando compra do cert A1 PJ (~R$200/ano, 1 dia em Serpro/Certisign/AC SafeWeb/Soluti).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>compliance_fici_arquitetura.md</code></em></small>

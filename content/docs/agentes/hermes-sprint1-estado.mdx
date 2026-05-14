@@ -1,0 +1,89 @@
+---
+title: "HERMES Sprint 1 — schema hermes.* + 5 tools live em ZYONCS"
+description: "Sprint 1 do orquestrador comercial entregue 10/05/2026 com 184 grupos econômicos canônicos seedados, 4 tabelas + view, 5 tools (importar/crm/pipeline/churn_risk/gerar_proposta), integração ATLAS live, 28 testes passando, smoke real Envista validado"
+---
+Sprint 1 do HERMES (orquestrador Comercial) entregue em 10/05/2026 no projeto Supabase **ZYONCS** (`hbrvoairynwsliyxxgsg`).
+
+## O que ficou live
+
+**Schema `hermes.*`** aplicado via MCP `apply_migration` (migrations 001 + 002):
+- `hermes.clientes` — chave de negócio = `grupo_economico` (não CNPJ); razões fiscais agregadas em `TEXT[]`; `clientes_carga_real TEXT[]` para cross-link parceiro→cliente real (Cronos→FGM/Dentscare). CHECK constraints em `categoria_volume` (6 valores) e `tipo_relacao` (4 valores).
+- `hermes.oportunidades` — pipeline com fases. Vazia em S1.
+- `hermes.propostas` — drafts L2 com `requer_revisao_humana=true` perpétuo.
+- `hermes.vw_clientes_at_risk` — view com regra "WHIRLPOOL = critico_concentracao" perpétuo.
+- `hermes.vw_clientes_comerciais` — view filtrando `tipo_relacao='cliente_final'` (ÍCARUS e MOHAMED devem consumir ESTA view, não a tabela bruta).
+
+**Seed**: 184 grupos econômicos do CSV `00. GESTÃO/Mapeamento 2026/SEED_CLIENTES_HERMES_ESL_2026-05-09.csv`. Validações canônicas confirmadas:
+- Top-3: WHIRLPOOL 31,7354% · PICHAU 9,1271% · INTELBRAS 41 5,1168%
+- WHIRLPOOL com `qtd_razoes_fiscais=9` e categoria `ancora_critico`
+- CRONOS com `tipo_relacao='parceiro_aereo_internacional'` e `clientes_carga_real=['FGM HOME CARE', 'DENTSCARE']` (Leitura A — Rubens 2026-05-10)
+- 183 clientes_finais + 1 parceiro_aereo
+- `vw_clientes_comerciais`: 183 grupos (Cronos automaticamente excluído)
+
+**5 tools live em `zyon-agents/hermes/tools/`**:
+1. `importar_clientes_esl(arquivo_csv?, dry_run?)` — idempotente via `ON CONFLICT (grupo_economico) DO UPDATE`
+2. `crm_clientes(grupo_economico?, categoria_volume?, tipo_relacao?, vendedor?, ...)` — L1 read-only com paginação
+3. `pipeline(fase?, vendedor?, meta_mensal_brl?)` — L1, calcula `valor_ponderado` e cobertura vs meta 3x
+4. `churn_risk(nivel_risco?, excluir_parceiros?)` — L1, excluir parceiros default
+5. `gerar_proposta(grupo_economico, rotas, requisitos, margem_alvo?)` — L2 draft markdown, persiste rascunho em `hermes.propostas`
+
+**Integração ATLAS live**: `hermes/integrations/atlas_client.py` chama `atlas.tools.dre_filial.dre_filial()` para margem de referência. Tolerante a falha — fallback 15%.
+
+**Bloqueio Cronos**: `gerar_proposta` valida `tipo_relacao=cliente_final` no início; recusa parceiros aéreos/grupo próprio com mensagem PT-BR explicando.
+
+## Decisões institucionais aplicadas
+
+- Projeto Supabase **ZYONCS** (não LEX, não projeto novo) — alinhado a ATLAS/ÍCARUS/COSMOS/AEGIS.
+- Schema dedicado `hermes.*` — convenção idêntica a `atlas.*`, `themis.*`.
+- RLS desabilitado em S1 (consistente com `atlas.*` — Hélio define policies em S2).
+- Sem GENERATED columns (memória `whirlpool_nextday_regra_completa.md` indica bug conhecido em ZYONCS).
+- Voz: VOO PREMIUM, sóbria, sem emojis. System prompt em `hermes/prompts/system_hermes.md`.
+- Whirlpool sempre flagged em `critico_concentracao` (regra perpétua na view).
+
+## Testes
+
+28 testes unitários em `hermes/tests/` (pytest + pytest-asyncio). Fixtures: fake supabase via monkeypatch (sem dependência de DB), mock Anthropic. Cobre: filtros, validações Pydantic, idempotência importer, bloqueio Cronos, persistência rascunho, normalização de categorias.
+
+Smoke real `gerar_proposta(ENVISTA)` com Claude Sonnet 4 validou:
+- ~US$ 0,034/proposta (3.860 in / 1.480 out tokens)
+- Markdown estruturado com 6 seções + Anexo A interno
+- Referência ao relacionamento de 20 anos (memória `envista_relationship.md`)
+- Ponto focal Rosiane Hoepfner (memória `envista_contact.md`)
+- Regra de capital próprio (memória `icaro_capital_proprio_sem_factoring.md`)
+- Sem violações públicas (não cita Grupo RGO/Haier no corpo da proposta — apenas no checklist do Anexo A interno como item de auditoria)
+
+## Bloqueadores conhecidos
+
+- `.env` no MacBook Pro tem `SUPABASE_URL` apontando para projeto antigo (não-ZYONCS) e `SUPABASE_KEY` vazia. Em S1 a importação real foi feita via Supabase MCP em 3 batches. **Hélio precisa atualizar `.env` no Mac mini com URL+service_role do ZYONCS** para que `importar_clientes_esl` rode end-to-end via Python lá.
+- PostgREST com anon key não expõe schema `hermes` — service_role obrigatório para tools rodarem fora do MCP.
+- ATLAS ainda não expõe `margem_cliente(grupo_economico, periodo)` dedicada — usando `dre_filial(filial='JOI')` como aproximação (S5 troca).
+
+## Arquivos principais
+
+- `zyon-agents/hermes/orchestrator.py` — `HermesOrchestrator(AgentCore)` com `invoke_tool(name, **kwargs)` e fases stub
+- `zyon-agents/hermes/tools/{importar_clientes_esl,crm_clientes,pipeline,churn_risk,gerar_proposta}.py`
+- `zyon-agents/hermes/integrations/atlas_client.py`
+- `zyon-agents/hermes/prompts/{system_hermes,proposta_template}.md`
+- `zyon-agents/hermes/migrations/001_hermes_schema.sql`
+- `zyon-agents/hermes/tests/{conftest.py, test_*.py, test_smoke.py}` — 28 unit + 6 smoke
+
+## Roadmap Sprint 2
+
+1. Integração TORRE → `churn_risk` consome OTD por grupo via Supabase compartilhado.
+2. Integração THEMIS/LEX → `gerar_proposta` puxa redlines de contratos similares (HTTP cross-projeto LEX).
+3. Geração `.docx` via skill Anthropic `proposta-comercial-premium`.
+4. Briefing comercial diário 07h via Cláudio para Geovani (`perceive/reason/act` cron-driven).
+5. Revisão Geovani da categorização (campo `revisao_geovani`).
+6. Tools P2: `simular_cenarios`, `competitividade`, `mercado_indices`, `oportunidades`, `share_wallet`, `lifetime_value`, `analise_carteira`.
+
+**Why:** primeiro orquestrador comercial vivo no ecossistema ZZYON. Materializa CRM digital (P1 #9 do CATALOGO_AUTOMACOES), expõe concentração crítica em Whirlpool (31,7%) na camada de dados, e fecha o ciclo proposta-comercial-premium iniciado em LEX (caso Electrolux DOS-2026-00003).
+
+**How to apply:**
+- Para listar carteira: `from hermes.tools.crm_clientes import crm_clientes; crm_clientes(categoria_volume='ancora', response_format='markdown')`
+- Para gerar rascunho: `from hermes.tools.gerar_proposta import gerar_proposta; gerar_proposta(grupo_economico='ENVISTA', rotas=[...], requisitos={...})`
+- SQL ad-hoc: `SELECT * FROM hermes.vw_clientes_at_risk ORDER BY valor_frete_brl_periodo DESC;`
+- Sempre tratar saída de `gerar_proposta` como rascunho — nunca enviar ao cliente sem revisão humana (campo `requer_revisao_humana=True`).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>hermes_sprint1_estado.md</code></em></small>

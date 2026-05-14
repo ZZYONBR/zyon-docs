@@ -1,0 +1,17 @@
+---
+title: "Autonomia liberada para projetos ZZYON"
+description: "Rubens autorizou Claude a operar autonomamente nos projetos ZZYON (commit, push, deploy, edits) sem pedir confirmação a cada passo"
+---
+Em projetos ZZYON (zyon-saude, zzyon-platform/torre-*, zyon-tac, zyon-docs, zyon-agents), Claude pode commitar, pushar e disparar deploys Vercel sem pedir confirmação a cada ação. Operar como engenheiro sênior — decidir, executar, reportar.
+
+**Why:** Rubens disse "TA LIBERADO PARA O CLAUDE" em 2026-05-06 após commit/push de saude.zzyon.com. Pausar a cada git push trava o ritmo de trabalho dele em ciclos curtos de iteração visível.
+
+**How to apply:**
+- Push direto pra main em projetos ZZYON sem perguntar (deploy Vercel é o feedback loop esperado).
+- Operações REALMENTE destrutivas (force push, reset --hard, drop table, deletar branch/arquivo de produção, mexer em DNS/Vercel project settings, alterar permissões/RBAC) AINDA pedem confirmação.
+- Reportar o que foi feito ao final (hash do commit, URL de deploy se relevante) — não pedir permissão antes.
+- Não estende a outros projetos do Rubens (icaro-website, etc.) sem confirmação explícita.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>autonomy_zzyon_projects.md</code></em></small>

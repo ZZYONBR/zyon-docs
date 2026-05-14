@@ -1,0 +1,32 @@
+---
+title: "Ambiente multi-máquina ZYON via Tailscale"
+description: "MacBook Pro + Mac mini conectados via Tailscale; cada um tem responsabilidades específicas"
+---
+Ambiente ZYON é hospedado em DUAS máquinas diferentes conectadas via Tailscale. Não compartilham filesystem.
+
+**MacBook Pro** (`100.91.78.47`, hostname `macbook-pro-de-rubens`, user local `rubens2`)
+- Estação de desenvolvimento
+- Código do zyon-agents em `/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/zyon-agents/`
+- Venv Python 3.13 em `.venv/`
+- Não roda nada em produção
+
+**Mac mini** (`100.65.23.99`, hostname `mac-mini-de-rubens`, user local `rubens`)
+- Servidor 24/7
+- Evolution API stack (Colima Docker) em `~/Desktop/icaro-agents/docker/`
+- Supabase self-hosted (Colima) em `~/projetos/supabase/docker/`, exposto em porta 8100
+- Langfuse (OrbStack) em `~/langfuse/`, exposto em porta 3000
+- SSH passwordless: `ssh rubens@100.65.23.99` funciona do MacBook Pro
+
+**Why:** Mac mini fica ligado 24/7 com Tailscale, ideal para serviços sempre-on. MacBook viaja com o usuário. Tailscale dá IPs internos estáveis sem expor a internet.
+
+**How to apply:**
+- Em qualquer .env de desenvolvimento, apontar para Mac mini Tailscale, NUNCA `localhost`.
+  - `EVOLUTION_API_URL=http://100.65.23.99:8080`
+  - `SUPABASE_URL=http://100.65.23.99:8100`
+  - `LANGFUSE_HOST=http://100.65.23.99:3000`
+- Para falar com Docker do Mac mini via SSH, usar `export PATH="/opt/homebrew/bin:$PATH"; export DOCKER_HOST="unix:///Users/rubens/.colima/default/docker.sock"` (Colima) ou `unix:///Users/rubens/.orbstack/run/docker.sock` (OrbStack).
+- Para confirmar que Mac mini está alcançável: `tailscale status | grep mac-mini`.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>multi_machine_setup.md</code></em></small>

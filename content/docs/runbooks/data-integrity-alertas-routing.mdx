@@ -1,0 +1,69 @@
+---
+title: "Roteamento de alertas de fidelidade de dados"
+description: "Quem recebe WhatsApp/email quando um check de fidelidade falha — global vs localizado por filial"
+---
+## Regras de roteamento de alertas — `data_integrity_checks`
+
+### Tipo "global" (problema do sistema todo)
+Destinatário primário: **Rubens** (+5547999711598) + Hélio (TI)
+Exemplos:
+- ESL GraphQL com erros consecutivos
+- Cron sync parou
+- Cli360 não rodou em 25h
+- Reconciliação fretes ESL × Supabase divergente > 1%
+- Margens cobertura < 50% (qualquer mês)
+
+### Tipo "localizado por filial"
+Destinatário primário: **Líder filial** (vide `agentes_entrega_contatos`)
+Escalação 1h sem ação: **Rubens**
+
+| Filial | Líder | WhatsApp |
+|---|---|---|
+| 1.01 JOI | Jimmy | +5547988146171 |
+| 1.02 SP | Gabriel | +5511960930058 |
+| 1.03 FLN | Jimmy | +5547988146171 |
+| 1.04 PR | Emerson | +5541988791939 |
+| 1.05 RJ | Davi | +5521980452711 |
+| 1.07 CPQ | Rafael | +5511981490167 |
+
+Exemplos de checks localizados:
+- Fretes filial X sem agente_entrega > 30%
+- OTD filial X cai > 5pp vs semana anterior
+- CTes pendentes filial X > N
+- Avarias filial X > meta
+
+### Tipo "manual desatualizado"
+Destinatário primário: **Rubens**
+Exemplos:
+- Pagadores sem atendente CS > 20%
+- Vendedor não mapeado pra cliente novo
+- Tabela manual com último update > 7d
+
+### Tipo "operacional grave"
+Destinatário primário: **Rubens** + envolvidos do contexto
+Exemplos:
+- Whirlpool USP no segmento WHP_BUD_MLOG (regra violada)
+- Deutsche aparecendo em consolidado (regra violada)
+- Frete com data_entrega futura impossível
+
+## Estrutura técnica
+
+Tabela `data_integrity_checks`:
+```sql
+- check_id (slug)
+- titulo
+- query_sql (a regra)
+- threshold_atencao
+- threshold_critico
+- categoria (global / por_filial / manual / operacional)
+- destinatarios_primarios (array de WhatsApps OU 'lider_filial' OU 'rubens')
+- destinatarios_escalacao
+- prazo_escalacao_min
+- ativo
+```
+
+Cron diário 06h roda todos os checks → grava em `data_integrity_history` → dispara WhatsApp dos checks que viraram CRÍTICO.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>data_integrity_alertas_routing.md</code></em></small>

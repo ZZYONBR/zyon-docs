@@ -1,4 +1,18 @@
 {
   "title": "Arquitetura",
-  "pages": ["multi-llm"]
+  "pages": [
+    "multi-llm",
+    "autonomy-zzyon-projects",
+    "fabrica-gestores-ia-padrao",
+    "icaro-conselho-repositorio",
+    "zyon-torre-briefing-completo",
+    "zzyon-arquitetura-11-agentes",
+    "zzyon-brand-manual-v1",
+    "zzyon-lex-branding",
+    "zzyon-lex-cron-macmini",
+    "zzyon-lex-fase-b-ia",
+    "zzyon-lex-pipeline-completo",
+    "zzyon-lex-plataforma-solucoes-fase-a",
+    "zzyon-lex-supabase-project"
+  ]
 }

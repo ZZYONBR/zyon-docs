@@ -1,0 +1,168 @@
+---
+title: "SOFIA Sprint 1A entregue (offline-first BM25, 385 chunks)"
+description: "Estado pós-implementação SOFIA Sprint 1A em 2026-05-10 — 4 tools, pipeline ingestão dos 27 templates do Mapeamento 2026, BM25 baseline em artifacts/kb_index.json. Sprint 1B aguarda apply de migration ZYONCS + decisão Voyage AI."
+---
+# SOFIA — Sprint 1A entregue (2026-05-10)
+
+## Estado em disco
+
+Implementado em `/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/zyon-agents/sofia/`:
+
+```
+sofia/
+├── orchestrator.py                     # SofiaAgent(AgentCore) — perceive/reason/act mínimos, read-only L1
+├── prompts/system_v1.md                # system prompt PT-BR sóbrio, 7 regras não-negociáveis
+├── tools/
+│   ├── __init__.py                     # exporta 4 funções públicas
+│   ├── _index.py                       # IndexDriver: LocalJsonDriver (BM25) + PgvectorDriver (Sprint 1B stub)
+│   ├── consulta_natural.py             # Q&A geral com síntese opcional via Claude (@trace Langfuse)
+│   ├── buscar_responsavel.py           # "Quem faz X?" agregado por (autor, filial)
+│   ├── buscar_kpi.py                   # extração regex de meta numérica
+│   └── buscar_processo.py              # passos do processo + responsável + sistemas
+├── ingestion/
+│   ├── loader_xlsx.py                  # 27 templates → atividades canônicas
+│   ├── loader_markdown.py              # split por headers ##/###
+│   ├── chunker.py                      # ~500 tok target, contexto filial/autor/área no prefixo, sinônimo WHP↔Whirlpool
+│   ├── embedder.py                     # NullEmbedder + VoyageEmbedder + OpenAIEmbedder (lazy import)
+│   └── pipeline.py                     # CLI: python -m sofia.ingestion.pipeline --offline
+├── migrations/
+│   └── 001_init_sofia_schema.sql       # schema sofia.* + RPC match_chunks (vector(1024))
+├── tests/
+│   ├── test_loader_xlsx.py             # 8 testes: discover, normalize_filial, classify_header, parse end-to-end
+│   ├── test_chunker.py                 # 6 testes: tokens, split, atividades, seções
+│   ├── test_index_local.py             # 7 testes: tokenize, search, filtros, índice ausente
+│   └── test_tools_smoke.py             # 14 testes: 10 queries reais + buscar_*
+└── artifacts/kb_index.json             # GERADO — 30 docs, 385 chunks, 99k tokens
+```
+
+## Resultados validados em 2026-05-10
+
+**Pipeline de ingestão** (`python -m sofia.ingestion.pipeline --offline`):
+- 30 documentos (26 templates XLSX + 3 markdowns + CLAUDE.md)
+- 385 chunks
+- 99.025 tokens (média 257/chunk)
+- Por filial: JOI=16, SAO=8, CPQ=1, RJO=1, sem filial=4
+- Por área: 16 áreas distintas mapeadas
+
+**Suíte de testes** (`pytest sofia/tests/`):
+- **32/34 passando**, 2 falhas cosméticas conhecidas:
+  1. `test_tokenize_handles_accents_and_punctuation` — fix pronto in-line abaixo (não aplicado por EPERM no sandbox)
+  2. `test_consulta_natural_top_hit_makes_sense[atendimento whirlpool]` — Thais (Atendimento WHP) não fica no top-5; está em P3, fix com sinônimos no chunker já parcial. Solução: relaxar expected ou enriquecer chunker com mais sinônimos.
+
+**Smoke test 10 queries reais — 9/10 passaram**:
+| Query | Esperado | Top-5 | OK |
+|---|---|---|---|
+| recebimento joinville | Victor Vincent | ✓ | ✓ |
+| expedição são paulo | Wilson/Donny/Gabriel/Leonardo/Ratti | ✓ | ✓ |
+| regulatorio anvisa | Carol | ✓ | ✓ |
+| monitoramento entregas joinville | Bruno/Isaias | ✓ | ✓ |
+| trafego joinville | Roberto | ✓ | ✓ |
+| frota são paulo | Donny/Ratti | ✓ | ✓ |
+| comercial joinville | Geovani/Wellenton | ✓ | ✓ |
+| atendimento whirlpool | Thais | ✗ Rafael domina BM25 por TF de "atendimento" | falha conhecida |
+| rio de janeiro operação | Davi | ✓ | ✓ |
+| campinas operação | Rafael | ✓ | ✓ |
+
+## Decisões técnicas tomadas
+
+1. **Driver dual desde já** (`SOFIA_INDEX_DRIVER` env): `local_json` (Sprint 1A) e `pgvector` (Sprint 1B). Switch é trivial.
+2. **Contexto de filial+autor+área prepended ao texto do chunk** — corrigiu de 4/10 para 9/10 queries acertadas no top-5 do BM25.
+3. **Sinônimo WHP↔Whirlpool** no chunker (parcial — não cobriu o caso completo no smoke test).
+4. **Tokenização tolera Unicode**: `≥`, `%`, `⭐` viram separadores; combining chars (acentos) são removidos preservando letra base.
+5. **Síntese Claude é opcional** (`synthesize=True/False`) — testes rodam sem ANTHROPIC_API_KEY chamando só BM25.
+6. **`@trace` Langfuse** ao redor da chamada Anthropic em `consulta_natural._call_claude_traced` (no-op se Langfuse desabilitado).
+7. **Pipeline reporta "achados de qualidade"** — 1 template sem header inicial detectado tinha tipografia "Templete" + cabeçalho "atividade verbo objeto" — todos resolvidos com substring matching.
+
+## Dois fixes finais que ficaram pendentes (sandbox quebrou Edit/Read)
+
+1. **`_normalize` em `sofia/tools/_index.py`** — descartar combining chars antes de filtrar não-ASCII:
+
+```python
+def _normalize(s: str) -> str:
+    import unicodedata
+    s = unicodedata.normalize("NFKD", s)
+    out = []
+    for c in s:
+        if unicodedata.combining(c):
+            continue
+        if ord(c) < 128:
+            out.append(c)
+        else:
+            out.append(" ")
+    return "".join(out).lower()
+```
+
+2. **Smoke test "atendimento whirlpool"** — opção (a) relaxar expected para `["thais", "wilson"]`, ou (b) chamar `buscar_responsavel("atendimento whirlpool")` em vez de `consulta_natural` (a tool especializada filtra por template_xlsx).
+
+## Pré-requisitos de Sprint 1B (aguardando)
+
+| # | Item | Responsável | Status |
+|---|---|---|---|
+| 1 | Aplicar `001_init_sofia_schema.sql` em **branch dev ZYONCS** | Hélio (DAEDALUS) | Pendente |
+| 2 | Confirmar `pgvector` habilitado em ZYONCS | Hélio | Pendente |
+| 3 | Popular `SUPABASE_ZYONCS_KEY` no `.env` MacBook + Mac mini | Rubens (autorizar) | Pendência #2 do usuário |
+| 4 | Decidir provedor de embeddings (recomendação: Voyage AI) | Rubens | Aberto |
+| 5 | Comprar API key Voyage ou OpenAI | Rubens | Aberto |
+| 6 | Rodar `python -m sofia.ingestion.pipeline --target supabase` | Eu | Bloqueado por #1-#5 |
+
+## Próxima ação concreta para destravar Sprint 1B
+
+> Rubens, abrir ticket para Hélio: criar branch dev em ZYONCS,
+> aplicar `zyon-agents/sofia/migrations/001_init_sofia_schema.sql`,
+> verificar `pgvector` habilitado e me passar `SUPABASE_ZYONCS_URL`
+> + key anon/service_role. Em paralelo, decidir Voyage vs OpenAI.
+
+## Como outros agentes consomem SOFIA (cross-agent)
+
+```python
+from sofia.tools import consulta_natural
+
+# ATENA, TORRE, ATLAS, etc. podem chamar:
+result = await consulta_natural("quem faz expedição NextDay em SP?",
+                                top_k=5, synthesize=True)
+# result["resposta"] tem texto Claude-sintetizado;
+# result["fontes"] lista templates citados;
+# result["latencia_ms"] {"busca", "sintese", "total"}
+```
+
+## Itens pendentes desta sessão por causa do sandbox quebrado
+
+1. README atualizar STATUS para "🟡 Sprint 1A entregue (1B aguardando)"
+2. Criar `sofia/SPRINT1.md` com changelog
+3. Adicionar a `requirements.txt`: `rank-bm25>=0.2.2`, `tiktoken>=0.7.0`, `voyageai>=0.2.0` (opcional)
+4. Adicionar a `.env.example` o bloco SOFIA (`SOFIA_INDEX_DRIVER`, `SUPABASE_ZYONCS_URL/KEY`, `EMBEDDING_PROVIDER`, etc.)
+5. Adicionar a `.gitignore`: `sofia/artifacts/*.json` (já está em `.venv*` e `data/*.csv`)
+6. Aplicar os 2 fixes finais do tokenize + smoke test
+7. `git add zyon-agents/sofia && git commit -m "sofia: sprint 1A — RAG offline-first com BM25 baseline"`
+
+## Comandos úteis
+
+```bash
+cd "/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/zyon-agents"
+
+# Ingestão (regenera artifacts/kb_index.json)
+PYTHONPATH=. .venv_sofia/bin/python -m sofia.ingestion.pipeline --offline
+
+# Testes
+PYTHONPATH=. .venv_sofia/bin/python -m pytest sofia/tests/ -v
+
+# Smoke manual
+PYTHONPATH=. .venv_sofia/bin/python -c "
+import asyncio
+from sofia.tools import consulta_natural
+print(asyncio.run(consulta_natural('quem faz recebimento em joinville?',
+                                    synthesize=False, response_format='markdown')))
+"
+```
+
+## Arquitetura tomada por SOFIA
+
+- **Camada**: 4 (Verticais) — entrega valor cross-agent.
+- **Status**: 🟡 Sprint 1A entregue, 1B bloqueado.
+- **Donos**: Luan + Aline (curadoria); Rubens (sponsor); usuários: TODOS colaboradores.
+- **Guardrails**: tudo L1 read-only por design (não age, só responde).
+- **Confidencialidade**: Sprint 1A só ingere fontes "internamente compartilháveis" (templates Mapeamento + CLAUDE.md). MEMORY.md fica para Sprint 2 com curadoria.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>sofia_sprint1_status.md</code></em></small>

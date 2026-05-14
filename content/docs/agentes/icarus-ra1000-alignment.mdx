@@ -1,0 +1,40 @@
+---
+title: "ÍCARUS × RA1000 — Alinhamento e handoff"
+description: "Cross-link entre o pipeline RA1000 operacional (ZYONCS, Mac mini, Evolution) e o agente ÍCARUS Sprint 9; mostra onde os dados vivem, RPCs prontos, regras canônicas, janela horária, infraestrutura e primeiros entregáveis sugeridos"
+---
+# ÍCARUS × RA1000 — Alinhamento
+
+Em 2026-05-10 Rubens pediu para alinhar com ÍCARUS tudo que o pipeline RA1000 construiu. O documento mestre está em `zyon-agents/icarus/HANDOFF_RA1000.md` e abrange 12 seções (415 linhas). Esta memória é o pointer; sempre que o próximo Cláudio for codar Sprint 9 ÍCARUS, abrir o HANDOFF primeiro.
+
+## O que o HANDOFF cobre
+
+1. **Tabelas canônicas em ZYONCS** que ÍCARUS consome (`cs_ra_reclamacoes`, `ra_acionamentos`, `vw_ra_pipeline_status`, dual-write legacy) + esqueleto `icarus.*` já migrado
+2. **9 RPCs prontas** no banco (`cs_ra_pipeline_briefing`, `cs_ra_check_acionamentos_timeout`, `cs_ra_registrar_resposta_acionamento`, `cs_ra_log_event`, `cs_ra_registrar_acionamento`, `cs_ra_status_workflow_to_legacy`, `cs_ra_in_business_hours`, `cs_ra_filial_to_esl_codigo`)
+3. **Regras canônicas**: janela 07-19h seg-sex + 07-12h sáb + dom nada · template fixo 6 blocos · hierarquia gestor→Kevin→Rubens · mapa líderes por filial · estados workflow · dual-write trigger
+4. **Infraestrutura**: Evolution `evoapicloud/evolution-api:v2.3.5` no Mac mini Docker (`~/zyon-agents/evolution/docker-compose.yml`) + launchd auto-restart + 2 instâncias (`icaro-claudio` + `icaro-frota`) + Tailscale Funnel pública + polling 5min com gate horário
+5. **Integrações cross-agent** (HERMES churn, ATLAS rentabilidade, TORRE inbox, CLÁUDIO canal WhatsApp, SOFIA RAG)
+6. **Grupos econômicos** com WHIRLPOOL = 31,7% do faturamento (peso máximo) + dedup Deutsche Cargo
+7. **Pipeline passo-a-passo** (10 etapas) com lacunas que Sprint 9 vai fechar
+8. **Anti-padrões** (não usar pg_net pra Tailscale, não usar atendai v2.2.3, não postar tréplica sem validar ESL, etc.)
+9. **KPIs** (NPS≥8,5 · SAC≤24h · RA≤72h · cobertura top-30≥80% · % escalação Rubens≤5%)
+10. **11 memórias relacionadas** para consultar
+11. **5 primeiros entregáveis Sprint 9** sugeridos em ordem de impacto/risco (triagem_ra → escalar_diretoria → consolidador_canais → nps_cliente → relatorio_performance_cliente)
+12. **Identidade visual**: `ZZYON CS · Agente IA Ícarus` para humanos da operação, `Equipe Ícaro Express` para clientes finais
+
+## Quando atualizar
+
+- A cada Sprint 9 entregável (triagem_ra, escalar_diretoria etc.)
+- Quando aparecer novo cron/RPC operacional do RA1000
+- Quando schema canônico mudar
+- Quando regras de janela horária mudarem
+
+## Comando para sincronizar com Mac mini
+
+```bash
+scp /Users/rubens2/Desktop/15.\ IA\ AUTOMAÇÃO/zyon-agents/icarus/HANDOFF_RA1000.md \
+    rubens@100.65.23.99:~/zyon-agents/icarus/HANDOFF_RA1000.md
+```
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>icarus_ra1000_alignment.md</code></em></small>

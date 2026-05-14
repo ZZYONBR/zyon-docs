@@ -1,0 +1,30 @@
+---
+title: "Folha de pagamento · layout Sage CSV"
+description: "CSVs mensais layout Sage em /Users/rubens2/Desktop/3. RH_PESSOAS/RH 2026/FOLHA/"
+---
+**Local:** `/Users/rubens2/Desktop/3. RH_PESSOAS/RH 2026/FOLHA/`
+
+**Formato:**
+- Encoding: cp1252 (Windows-1252)
+- Separador: `;`
+- Colunas: `Codigo;Empregado;EV xxx - Nome;...`
+
+**Arquivos por tipo:**
+- `30112025.csv` — folha normal mensal
+- `30112025 13.csv` — décimo terceiro
+- `G3.csv` — sócios G3
+- `deu.csv` — Deutsche Cargo
+- `RGO.csv` — RGO Participações
+
+**Sistema de folha:** sistema externo (a confirmar — Sage/Apdata/SCI/Domínio?). Holerite manual hoje, sem webhook/API.
+
+**Para descontos automáticos (multas, etc):**
+Sugerir ao DP criar EV específico (ex: EV 7777 "Desconto Multa Trânsito") OU usar EV 5023 genérico de desconto. Exportador automático precisa cuspir CSV no mesmo layout do sistema atual.
+
+**Why:** futuro exportador automatizado vai gerar CSV mensal com lançamentos de desconto, mantendo conciliação Frota→Folha sem entrada manual.
+
+**How to apply:** quando criar exportador, replicar exatamente o layout cp1252 + sep `;` pra que o sistema atual aceite o import.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>folha_pagamento_layout.md</code></em></small>

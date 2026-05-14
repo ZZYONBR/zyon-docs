@@ -1,0 +1,63 @@
+---
+title: "icaro-conselho — repositório classificado do Conselho de Administração"
+description: "Repositório separado e classificado para artefatos do Conselho da Ícaro Express, criado em 09/05/2026. Suporta agente ABOOBAKAR. Local + git-crypt preparado. Push para GitHub e ativação de criptografia pendentes."
+---
+Repositório classificado criado em 2026-05-09 a pedido de Rubens, separado do `zyon-agents` por razões de sigilo, auditabilidade e cadência distinta. Suporta o futuro agente IA **ABOOBAKAR** (Conselho de Administração).
+
+**Localização**: `/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/icaro-conselho/`
+
+**Estrutura completa**:
+```
+icaro-conselho/
+├── README.md (classificação CONFIDENCIAL + princípios ABOOBAKAR LEIA TRÊS VEZES)
+├── GOVERNANCE.md v1.0 (hierarquia L0-L5, ciclo produção, auditoria, DR, onboarding)
+├── CHANGELOG.md
+├── .gitignore (drafts, secrets, exports protegidos)
+├── .gitattributes (preparado git-crypt — NÃO ATIVO)
+├── atas/ + _template-ata.md
+├── dossies/ + _template-dossie.md
+├── decisoes/ + _template-decisao.md
+├── pessoas/ + relacao-conselheiros.md (placeholder) + _template-onboarding-conselheiro.md
+├── compensacao/ + _template-comp-c-level.md
+├── societario/ + _placeholder-estatuto.md
+├── compromissos/ + _placeholder-finep.md
+├── auditoria/ (sem template — varia por tipo)
+└── _drafts/ (gitignored exceto README orientativo)
+```
+
+**Estado em 09/05/2026**:
+- `git init -b main` executado, commit inicial `1ae296d` (22 arquivos)
+- ZERO conteúdo classificado real — apenas estrutura institucional
+- **Sem remote configurado** — push pendente
+- **git-crypt preparado mas NÃO ativado** — `.gitattributes` traz instruções de ativação para Hélio+Rubens em sessão presencial
+- Templates prontos para uso: ata, dossiê, resolução, onboarding conselheiro, compensação C-level
+
+**Pendências para ativação completa**:
+1. Rubens confirma composição do Conselho (popular `pessoas/relacao-conselheiros.md`)
+2. Decisão Hélio+Rubens sobre org GitHub do push (ZZYONBR? conta pessoal? org separada Ícaro?) e visibilidade (privado obrigatório)
+3. Decisão técnica Hélio+Rubens: ativar `git-crypt init`, gerar chave simétrica, custódia em 3 cópias (USB cofre Joinville + Yubikey Rubens + envelope advogado)
+4. Convidar conselheiros como collaborators (read-only, escopo)
+5. Implementação do agente ABOOBAKAR no zyon-agents/aboobakar/ — **esqueleto criado 09/05/2026 noite** (README 12 seções padrão ATENA + orchestrator stub + estrutura canônica `tools/handlers/prompts/tests/`); implementação efetiva começa Sprint 10+ do roadmap geral, depois de MOHAMED v1. Ver memória `aboobakar_agente_secretaria_conselho.md`.
+
+**Acesso definido em GOVERNANCE.md §1**:
+- L0 Owner: Rubens (TUDO)
+- L1 Admin técnico: Hélio (infra apenas, não lê conteúdo)
+- L2 Conselheiros titulares: leitura (escrita após aprovação Presidente)
+- L3 Auditor externo: temporário, sob protocolo formal §5
+- L4 Diretoria operacional: nada por padrão
+- L5 ABOOBAKAR (agente IA): read-only universal + write apenas em `_drafts/`
+
+**Why:** misturar artefatos de Conselho (atas, decisões plurianuais, compensação executiva, atos societários) com repositório operacional `zyon-agents` é risco inaceitável de governança. Conteúdo aqui é estratégico, legal, sujeito a auditoria por terceiros (FINEP, sócios, advogados). Cadência também difere: operacional gira diário/semanal, Conselho gira trimestral/anual. Repositório próprio reforça as 4 barreiras de ABOOBAKAR (não vota, preserva rastro, não antecipa decisão, preserva sigilo).
+
+**How to apply:**
+- Em qualquer chat futuro que mencione "Conselho", "ABOOBAKAR", "ata", "dossiê do Conselho", "auditoria FINEP" — apontar para este repositório.
+- NUNCA versionar conteúdo classificado real sem `git-crypt` ativo. Se tiver que registrar antes da ativação: usar placeholders genéricos.
+- ABOOBAKAR jamais escreve direto em pasta versionada — sempre passa por `_drafts/` + revisão humana + movimentação manual.
+- Repositório complementa, não substitui, governança humana. Toda decisão é colegiada e humana.
+- Se pedirem "me dá o estatuto" ou "me dá a última ata" antes da população real, responder que repositório nasceu vazio em 09/05/2026 e os arquivos são placeholders/templates.
+- Mudança no Conselho (admissão, saída, alteração de mandato) dispara fluxo do `GOVERNANCE.md §9-10`.
+- Não citar Grupo RGO em commit que possa vazar (mesmo internamente). Manter regras públicas do CLAUDE.md raiz.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>icaro_conselho_repositorio.md</code></em></small>

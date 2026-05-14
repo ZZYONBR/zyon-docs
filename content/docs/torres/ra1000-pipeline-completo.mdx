@@ -1,0 +1,240 @@
+---
+title: "RA1000 — Pipeline completo (fluxo end-to-end)"
+description: "Workflow operacional confirmado em 2026-05-05 com 7 reclamações reais. Cobre captura→ESL→draft→aprovação Rubens→acionamento gestor→postagem→avaliação. Substitui pseudocódigo das SKILLs."
+---
+# RA1000 — Pipeline operacional completo
+
+Validado fim-a-fim em 2026-05-05 com Wallace, Pedro, Mikhaele, Welton, Marco, Ana Claudia, Diogo. Todas as etapas têm SQL/curl prontos.
+
+## Visão geral
+
+```
+Painel RA Business
+  ↓ Chrome MCP (sessão Mac mini, login auto-aprovado em 5s pelo Cloudflare turnstile)
+Captura RA (texto + cliente + tel + replicas + avaliação)
+  ↓
+UPSERT cs_ra_reclamacoes + reclamacoes_ra (DUAL WRITE obrigatório)
+  ↓ trigger cs_ra_atribuir_filial_auto
+Roteamento por uf+cidade → filial+lider
+  ↓
+Lookup ESL GraphQL (pg_net + vault.ESL_TOKEN) por CPF
+  ↓
+Endereço completo + nome ESL + tel + email no metadata
+  ↓
+Draft Cláudio (LLM)
+  ↓
+WhatsApp Rubens (5547999711598) → aguarda OK
+  ↓
+WhatsApp Gestor (template fixo - ver memoria ra1000_acionamento_gestor_template.md)
+  + cópia Jimmy (5547988146171)
+  + BCC Rubens
+  ↓ aguarda data firme em até 2h
+Postagem no painel via Chrome MCP
+  ↓ dual-write Supabase (estado_workflow=publicada)
+  ↓ cs_ra_log_event(ra_id, ..., 'resposta_postada', ...)
+Aguarda cliente avaliar (até 30 dias)
+  ↓ ra1000-avaliador captura nota/voltaria/resolvido
+Se nota<8 OU não voltará → tréplica recuperação
+  Se nota≥8 → aguarda fechamento
+```
+
+## Estados workflow (CHECK constraint)
+
+```
+recebida → enriquecida → drafted → aguardando_aprovacao → publicada
+  → em_replica (cliente respondeu)
+  → aguardando_avaliacao (esperando 3 campos finais cliente)
+  → encerrada
+```
+
+## Blocos SQL canônicos
+
+### 1. Lookup ESL pelo CPF (puxa endereço completo destinatário)
+Ver memória `esl_graphql_lookup.md`. Pattern:
+
+```sql
+WITH token AS (SELECT decrypted_secret AS t FROM vault.decrypted_secrets WHERE name='ESL_TOKEN' LIMIT 1)
+SELECT net.http_post(
+  url := 'https://icaro.eslcloud.com.br/graphql',
+  headers := jsonb_build_object('Content-Type','application/json','Authorization','Bearer '||(SELECT t FROM token)),
+  body := jsonb_build_object(
+    'query', 'query($p:IndividualInput!){individual(params:$p){edges{node{id name cpf email phoneNumber mainAddress{line1 line2 number postalCode neighborhood city{name state{code}}}}}}}',
+    'variables', jsonb_build_object('p', jsonb_build_object('cpf', '<CPF>'))
+  )
+) AS req_id;
+```
+
+### 2. UPSERT cs_ra_reclamacoes + reclamacoes_ra (DUAL WRITE - pegadinha!)
+
+```sql
+INSERT INTO cs_ra_reclamacoes (ra_id, ra_protocolo, url_ra, cliente_nome, cliente_cpf, cliente_email,
+  cliente_telefone, cidade, uf, data_abertura, estado_workflow, fonte_dados, mes_ref, motivo_texto, severidade)
+VALUES (...)
+ON CONFLICT (ra_id) DO UPDATE SET ...;
+
+-- LEGACY (alimenta UI ra.zzyon.com - ESQUECER ISSO QUEBRA O PAINEL)
+INSERT INTO reclamacoes_ra (numero_ra, cliente, cidade, uf, data, status_ra, motivo)
+VALUES (...)
+ON CONFLICT (numero_ra) DO UPDATE SET status_ra=EXCLUDED.status_ra;
+```
+
+### 3. Atualizar metadata com dados ESL
+
+```sql
+UPDATE cs_ra_reclamacoes SET
+  metadata = COALESCE(metadata,'{}'::jsonb) || jsonb_build_object(
+    'esl_id', '...',
+    'cliente_nome_esl', '...',
+    'endereco_completo', '...',
+    'cep', '...',
+    'cidade_entrega', '...',
+    'uf_entrega', '...',
+    'esl_lookup', 'graphql_individual_pg_net'
+  ),
+  updated_at = now()
+WHERE ra_id = '...';
+```
+
+### 4. Audit log (chamar em TODA etapa importante)
+
+```sql
+SELECT cs_ra_log_event(
+  '<ra_id>', '<actor>', '<event>',
+  jsonb_build_object('campo','valor', ...),
+  '<source>'
+);
+```
+
+Eventos canônicos: `recebida_no_painel`, `replica_capturada_painel`,
+`replica_e_avaliacao_capturada`, `esl_lookup_concluido`, `esl_dados_completos`,
+`draft_gerado`, `draft_aprovado`, `gestor_acionado`, `gestor_data_recebida`,
+`resposta_postada`, `cliente_avaliou`, `treplica_disparada`.
+
+## Acionamento gestor (template fixo OBRIGATÓRIO)
+
+Ver memória `ra1000_acionamento_gestor_template.md`. Resumo do bloco:
+- DESTINATÁRIO: nome, CPF, telefone RA (prioridade sobre cadastro), email
+- CARGA: embarcador, NF, pedido, peso real, peso taxado, volumes — cada lacuna `[confirmar no ESL CTe X]`
+- ENTREGA: endereço completo + cidade/UF + CEP
+- RA: id, protocolo, URL, status
+- AÇÃO PEDIDA: clara e objetiva (data firme em até 2h)
+
+## WhatsApp via Evolution
+
+```bash
+APIKEY="b65c9c79d15e1214e1b9737e063e6ca6494fd28b6c6a0282"
+BASE="http://100.65.23.99:8080"
+INST="icaro-claudio"
+
+curl -X POST "$BASE/message/sendText/$INST" \
+  -H "Content-Type: application/json" -H "apikey: $APIKEY" \
+  -d "$(jq -n --arg n "<TEL_SEM_+>" --arg t "<MSG>" '{number:$n, text:$t}')"
+```
+
+Contatos canônicos:
+- Rubens (CEO): `5547999711598` (NÃO 5547997571032 — esse é Kevin)
+- Kevin (FALLBACK): `5547997571032`
+- Jimmy (TI/JOI): `5547988146171`
+- Gabriel (SAO): `5511960930058`
+- Davi (RIO): `5521980452711`
+- Rafael (CPQ): `5511981490167`
+- Emerson (CWB): `5541988791939`
+- Renato (BHZ): `5531991168906`
+
+## Painel RA Business — login automatizado
+
+URL login: `https://www.reclameaqui.com.br/login/empresa/`
+- Chrome do Mac mini (deviceId `146be345-099a-411a-a155-3f31d564e872`) tem credenciais salvas
+- **Cloudflare turnstile**: aguardar 5-7s → quando aparece "Sucesso!" → click Entrar
+- Sessão persiste até expirar (algumas horas — recapturar quando voltar 404)
+
+URL listagem por filtro: `/area-da-empresa/reclamacoes/todas/?busca=<RA_ID>&criterio=ID+da+reclama%C3%A7%C3%A3o`
+
+URL réplicas: `/area-da-empresa/reclamacoes/replicas/`
+
+URL detalhe: `/area-da-empresa/reclamacoes/<COD>` (COD é hash 16 chars não-sequencial; obtido após click Visualizar/Responder)
+
+## Anti-padrões
+
+- ❌ Esquecer dual-write em `reclamacoes_ra` legacy → painel ra.zzyon.com fica dessincronizado
+- ❌ Postar resposta no painel sem OK explícito do Rubens via WhatsApp
+- ❌ Mandar mensagem ao gestor sem o template fixo (faltam dados → gestor não consegue programar)
+- ❌ Confundir telefone Rubens (5547999711598) com Kevin (5547997571032)
+- ❌ Assumir que cidade do RA = cidade real entrega (caso Welton: RA disse RJ, ESL disse SP)
+- ❌ Assumir que CPF do RA = CPF do destinatário ESL (caso Wallace: Mayara; caso Pedro: José Renato)
+- ❌ Prometer "em breve" / "rapidamente" — sempre prazo concreto (em até 2h, em até 24h)
+- ❌ Pedir "nota 10" — pedir sinceridade nos 3 campos avaliação
+- ❌ Usar emojis em qualquer comunicação
+- ❌ Tentar alterar endereço pelo nosso lado se diferir da NF — cliente aciona embarcador
+
+## Métricas a acompanhar (KPIs)
+
+- Tempo médio captura → resposta postada (meta: <2h)
+- Taxa aprovação 1ª tentativa Rubens (meta: ≥80%)
+- Taxa AJUSTAR Rubens (meta: ≤20%)
+- Tempo médio gestor responder (meta: <2h)
+- Nota média final cliente (meta: ≥8.5)
+- % cliente "voltaria sim" (meta: ≥85%)
+- % "resolvido sim" (meta: ≥90%)
+
+## Casos de referência
+
+- **Wallace Murillo** (#247404379 + #247604999) — caso fim-a-fim de 2 reclamações sequenciais
+- **Pedro Renato** (#247632021) — caso de repasse para terceiro (Risso Transportes CTe 2776840)
+- **Welton Torres** (#247667923) — caso de correção de filial (cliente disse RJ, destino real SP)
+- **Marco Penso** (#247766103) — caso de tréplica recuperação (cliente avaliou nota 0 e cancelou compra)
+- **Ana Claudia Ribeiro** (#247629979 + #247758881) — caso de cliente reincidente (2 RAs em 2 dias) + suspeita baixa falsa motorista
+- **Diogo Vannucci** (#247664383) — caso de churn rápido (avaliou em 17 min)
+
+## Onda 1B (2026-05-06) — schema upgrade aplicado
+
+**Triggers em produção:**
+- `cs_ra_sync_to_legacy()` — AFTER INSERT/UPDATE em cs_ra_reclamacoes → UPSERT automático em reclamacoes_ra (UI atualiza sem dual-write manual). Pula IDs curtos (legados <8 dígitos).
+- `cs_ra_sync_dispatch_to_canonical()` — espelha dispatch_status legacy → canônica. Usa `pg_trigger_depth() > 1` pra evitar loop.
+
+**Helpers SQL:**
+- `cs_ra_filial_to_esl_codigo(filial)` → mapeia SAO/RIO/CPQ/etc → '1.02 ICARO SP' / '1.05 ICARO RJ' / '1.07 ICARO CPQ' / etc
+- `cs_ra_status_workflow_to_legacy(estado, status_aval, voltaria, resolvido)` → mapeia estado_workflow canônico (8 valores) → status_ra legacy (6 valores aceitos pelo CHECK: aberta, respondida, resolvida, nao_resolvida, em_replica, aguardando)
+
+**Constraint:** `chk_cs_ra_ra_id_real` (NOT VALID) — bloqueia novos IDs curtos sem afetar legados.
+
+**Índices:** idx_cs_ra_metadata_gin, idx_cs_ra_estado_workflow_ativo, idx_cs_ra_recebido_em_desc, idx_cs_ra_filial_lider, idx_cs_ra_status_avaliacao, idx_ra_dispatch_pendente, idx_ra_status_ra.
+
+**Views:**
+- `v_ra_unified` — fonte única (canônica + legacy join). Tem `prioridade_calculada` (critico_treplica / reincidente / em_curso / antiga_sem_tratativa / encerrada / normal) e `dias_em_aberto`. Base pra UI v2.
+- `vw_ra_drift_check` — audita divergências canônica↔legacy (sincronizado / dispatch_divergente / tel_divergente / cidade_divergente / apenas_canonica)
+- `vw_ra_pendencias_por_gestor` — dashboard sidebar Torre (pendentes_tratativa / em_replica / em_treplica_recuperacao / sem_acionamento_wa / reincidentes / atrasadas_7d)
+
+**Colunas novas em cs_ra_reclamacoes:** `dispatch_status`, `dispatch_at`, `dispatch_lider_whatsapp`.
+
+## Onda 1C #1 (2026-05-06) — SLA escalonado aplicado
+
+**Tabela `ra_acionamentos`:** tracking de cada cobrança WhatsApp por nível (gestor/kevin/rubens). Inclui `prazo_resposta_em` calculado: gestor 120min, kevin 30min, rubens 60min.
+
+**View `vw_ra_sla_pendentes`:** lista o que precisa escalar AGORA. Retorna `proxima_acao`:
+- `gestor_silente_2h` — gestor não respondeu em 2h após acionamento
+- `escalar_kevin` — Kevin precisa ser acionado (60min após ser alertado, sem resposta gestor)
+- `escalar_rubens` — Rubens (60min após Kevin)
+- `aguardando` / `rubens_acionado`
+
+**RPCs:**
+- `cs_ra_registrar_acionamento(ra_id, nivel, nome, whatsapp, evolution_msg_id?)` → calcula prazo automaticamente + log no historico
+- `cs_ra_registrar_resposta_gestor(ra_id, data_firme, resposta?)` → marca respondido + atualiza esl_data_entrega + log
+
+**Próximo:** SKILL ou cron rodando `vw_ra_sla_pendentes` a cada 15min e disparando WA escalado pelos níveis.
+
+## Pipeline ESL automatizado validado em produção
+
+13 RAs processadas em 2026-05-05/06 com lookup `individual(cpf)` via pg_net + Vault `ESL_TOKEN`. Hits: 11/13 (Adeilson e Wallace 2ª sem hit — CPF do RA não bate como `individual` no ESL).
+
+Cidade ESL ≠ cidade RA detectado em 2 casos (Welton: RJ→SP, Anderson: Maricá→Suzano). Trigger automático poderia detectar e ajustar filial via `cs_ra_find_lider()`.
+
+## Referências
+
+- Doc canônica: https://docs.zzyon.com/docs/agentes/ra1000
+- Memórias: `esl_graphql_lookup.md`, `ra1000_acionamento_gestor_template.md`, `contatos_diretoria_lideres.md`, `evolution_api_credenciais.md`
+- SKILLs: `~/.claude/scheduled-tasks/ra1000-watcher`, `ra1000-replier`, `ra1000-avaliador`
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>ra1000_pipeline_completo.md</code></em></small>

@@ -1,4 +1,27 @@
 {
   "title": "Agentes",
-  "pages": ["claudio", "ra1000", "roberval"]
+  "pages": [
+    "claudio",
+    "ra1000",
+    "roberval",
+    "aboobakar-agente-secretaria-conselho",
+    "aegis-sprint1-entregue",
+    "atena-agente-gerente-operacoes",
+    "atlas-nfe-compras-pipeline",
+    "atlas-sprint1-entregue",
+    "conselho-virtual-arquetipico",
+    "cosmos-sprint1-estado",
+    "daedalus-agente-ti",
+    "demeter-agente-compras",
+    "hefesto-agente-frota-operacional",
+    "hera-sprint1-entregue",
+    "hermes-sprint1-estado",
+    "icarus-ra1000-alignment",
+    "icarus-sprint1",
+    "metis-agente-qualidade",
+    "mohamed-agente-ceo-espelho",
+    "sofia-sprint1-status",
+    "themis-processos-pipeline",
+    "themis-skeleton-v1"
+  ]
 }

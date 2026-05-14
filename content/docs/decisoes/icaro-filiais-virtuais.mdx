@@ -1,0 +1,30 @@
+---
+title: "Filiais Ícaro — operacionais vs virtuais (regra de mapeamento)"
+description: "Apenas 4 unidades têm operação humana mapeável (JOI, SAO, CPQ, RJO). As demais 7 das 11 canônicas são VIRTUAIS — existem fiscalmente (CNPJ próprio) mas sem operação física com pessoas executando processos rotineiros."
+---
+Confirmado por Rubens em 2026-05-08: a "ausência" de mapeamento das filiais FLN, CWB, RIO, POA, BHZ, EMB, ITJ, VIX **NÃO é gap de cobertura** — é fato estrutural correto. Essas filiais são **virtuais**: existem como CNPJ para emissão fiscal, presença legal e cobertura geográfica em manifesto/CT-e, mas não têm equipe humana executando processos rotineiros. Portanto, não há template a ser preenchido para elas.
+
+**Filiais OPERACIONAIS (com gente, processo, mapa aplicável)** — 4 unidades:
+- JOI (matriz)
+- SAO (hub principal)
+- CPQ (Campinas — Rafael)
+- RJO (Rio de Janeiro — Davi)
+
+> Nota: a unidade canônica do Rio na lista de 11 é VIX (Vitória/ES). RJO aparece no mapa porque Davi opera processos a partir dali, mas a estrutura canônica usa VIX. Confirmar com Rubens se RJO operacional = VIX virtual ou se são entidades distintas.
+
+**Filiais VIRTUAIS (existência fiscal, sem operação mapeável)** — 7 unidades:
+FLN, CWB, RIO, POA, BHZ, EMB, ITJ, VIX
+*(8 nomes? a lista canônica tem 11 = JOI+SAO+FLN+CWB+RIO+POA+CPQ+BHZ+EMB+ITJ+VIX. Mapeadas: JOI+SAO+CPQ+RJO=4. Não mapeadas: FLN+CWB+RIO+POA+BHZ+EMB+ITJ+VIX=8. RJO está fora da lista canônica — pode ser representação operacional de VIX ou entidade fiscal separada.)*
+
+**Why:** o diagnóstico inicial v1.0 (08/05/2026) tratou "4 de 11" como gap territorial e propôs como meta 90 dias "cobrir 8 de 11". Isso estava ERRADO — não há mais filiais a mapear sob a Fase 1, exceto se houver crescimento operacional novo. A meta correta é qualidade do mapa nas 4 operacionais, não expansão para virtuais.
+
+**How to apply:**
+- Em qualquer documento de mapeamento ou cobertura: dizer "100% das unidades operacionais mapeadas (4/4)" — não "4/11".
+- "Cobertura territorial" não é métrica relevante — só "qualidade do mapa por unidade operacional".
+- Se uma filial virtual virar operacional (ex.: contratam-se 3 pessoas em FLN), aí sim mapeia.
+- Atualizar artefatos: `DIAGNOSTICO.md`, `MAPEAMENTO_x_ZZYON_2026.md/.docx`, `Mapeamento_Master.xlsx` (Dashboard + Heatmap), `PLANO_DE_ACAO.md`, `README.md`, `GOVERNANCE.md`.
+- Memória `icaro_filiais_canonical.md` já dizia "7 ativas + 4 em desenvolvimento" — esta nova memória esclarece que "ativas" ≈ operacionais com gente, "em desenvolvimento" ≈ virtuais com CNPJ.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>icaro_filiais_virtuais.md</code></em></small>

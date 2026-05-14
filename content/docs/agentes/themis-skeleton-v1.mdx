@@ -1,0 +1,56 @@
+---
+title: "THEMIS jurídico — skeleton v1 funcional"
+description: "6 super-agentes Python em zyon-agents/themis/ com 22 tabelas Supabase, tools datajud/lexml/judge_oracle/licenca_alerts/contract_drafter; aguarda apply migrations"
+---
+**Sessão de 2026-05-06.** Plataforma jurídica do ZZYON criada e validada (sintaxe).
+
+## Estrutura
+`/Users/rubens2/Desktop/15. IA AUTOMAÇÃO/zyon-agents/themis/` — 26 arquivos Python + 2 SQL migrations.
+
+## 6 super-agentes (decisão Rubens)
+- **LABOR** — Trabalhista (CLT, Lei 13.103 motoristas, NRs, sindical SETCESC/FETCESP, eSocial)
+- **TAX** — Fiscal/Tributário (federal EFD/CARF, estadual TIT/TAT, LC 214/2025 reforma)
+- **CORP** — Societário/Patrimonial/PI (JUCESC/JUCESP, holding RGO, INPI, imobiliário)
+- **REG** — Regulatório (ANTT, ANVISA, ANAC, IBAMA, LGPD, ambiental)
+- **CONTRACT** — Análise contratual (Whirlpool, Haier, Pichau, etc.)
+- **LIT** — Litígio Cível/CDC/Penal empresarial
+
+## Funcionalidades implementadas (skeleton)
+1. **Q&A jurídico** via orchestrator (Haiku triagem → Opus análise + consolidação) com disclaimer obrigatório.
+2. **Dossiês organizados** (`themis.dossies`) — pasta única com timeline até finalização, código auto `DOS-2026-NNNNN`.
+3. **Licenças regulatórias** com vencimento, custo, follow-ups, alertas em 90/60/30/15/7 dias (`themis/tools/licenca_alerts.py`).
+4. **Contratos** — gerar minuta + redline de proposta da contraparte com severidade + base legal + persistência versionada (`contract_drafter.py`).
+5. **Judge Oracle** — ranking dos juízes prováveis com tendência/favorabilidade (alimentado por `themis.juiz_decisoes_tese`).
+6. **Alertas centralizados** (`themis.alertas` + `alertas_assinaturas`) — canais email/whatsapp/in_app por tipo+filial+área+severidade.
+7. **DataJud sync** — cron 06h Mac mini, atualiza movimentações de processos cadastrados + emite alertas em delta.
+
+## Limitação relevante
+DataJud público não expõe partes — descoberta inicial de processos é MANUAL (advogados/import). Detalhes em memória `datajud_privacidade_partes.md`.
+
+## Stack
+- Python 3.13, anthropic SDK, httpx, supabase-py
+- Modelos: Opus 4.7 (análise), Haiku 4.5 (triagem)
+- Supabase ZZYON schema `themis` (12 tabelas migration 001 + 10 tabelas migration 002 = 22 totais)
+- Langfuse self-hosted no Mac mini para observabilidade
+- pgvector para RAG de legislação/jurisprudência
+
+## Próximas ações (em ordem)
+1. **Aplicar migrations** 001 + 002 no Supabase ZZYON (aguarda OK do Rubens).
+2. **Repositories Python** em `db/repositories/themis_*.py` (CRUD de cada entidade).
+3. **Persistência** em `themis.consultas` + `themis.pareceres` no pipeline `analisar()`.
+4. **Langfuse @observe** no orchestrator e agentes.
+5. **Ingestão LexML** primeiro lote (CLT, Lei 13.103, Decreto-Lei 2.067/83, LC 214/2025).
+6. **Embeddings RAG** com BERTimbau-jurídico.
+7. **UI** em `zzyon.com/juridico`.
+8. **WhatsApp via Cláudio** para alertas.
+
+**Why:** Rubens pediu plataforma jurídica completa dentro do ZZYON cobrindo trabalhista/societário/fiscal/tributário + busca/alertas automatizados + dossiês organizados + contratos com devolutiva + acompanhamento regulatório + simulação de juízes para preparar peças. Decisão: 6 agentes, código em zyon-agents (Python oficial), schema themis no Supabase ZZYON existente, sem Escavador na fase 1.
+
+**How to apply:**
+- Para qualquer pergunta sobre THEMIS, consultar primeiro `themis/STATE.md` (estado vivo).
+- Esta memória resume o estado de 2026-05-06 — verificar se as migrations já foram aplicadas antes de assumir que o schema existe em prod.
+- Endereço dos arquivos: tudo sob `zyon-agents/themis/` (memória `zyon_agents_oficial`).
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>themis_skeleton_v1.md</code></em></small>

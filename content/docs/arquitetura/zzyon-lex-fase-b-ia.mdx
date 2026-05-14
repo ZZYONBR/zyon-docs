@@ -1,0 +1,134 @@
+---
+title: "ZZYON LEX — Fase B (IA) edge function lex-analyze-process"
+description: "Edge function Deno+Supabase que recebe PDF da petição e retorna análise estruturada via Claude Opus; popula themis.processo_analise + sugere documentos e ações; aguarda ANTHROPIC_API_KEY como secret"
+---
+**Deploy live em 2026-05-07.**
+
+## Edge function
+- Slug: `lex-analyze-process`
+- URL: `https://ywhmlvojowtsfetiyebg.supabase.co/functions/v1/lex-analyze-process`
+- Project: `ywhmlvojowtsfetiyebg` (zzyon-lex)
+- `verify_jwt: false` (frontend usa publishable key)
+- Modelo: `claude-opus-4-5` (estável; trocar para 4-7 quando confirmar disponibilidade)
+- Custo: ~US$ 0,30-0,50 por petição (~5k tokens IN / 2k OUT)
+
+## Bloqueio atual
+**ANTHROPIC_API_KEY ainda não está setada como secret** no Supabase. Sem isso a função retorna 500. Configurar em:
+https://supabase.com/dashboard/project/ywhmlvojowtsfetiyebg/settings/functions
+→ aba Secrets → adicionar `ANTHROPIC_API_KEY` com a key da conta Anthropic do Rubens.
+
+Validei chamando a função sem key:
+```
+{"error":"ANTHROPIC_API_KEY não configurada..."}
+```
+Após setar, sem redeploy: a função pega a env var na próxima invocação.
+
+## Contrato I/O da edge function
+
+**Request POST**:
+```json
+{
+  "processo_id": "uuid",
+  "pdf_base64": "...",         // sem prefixo data:
+  "pdf_filename": "petição.pdf",
+  "contexto": { "numero_cnj": "...", "tribunal": "...", "valor_causa": ... },
+  "criado_por_email": "rubens@icaroexpress.com"
+}
+```
+
+**Response 200**:
+```json
+{
+  "ok": true,
+  "analise_id": "uuid",
+  "versao": 1,
+  "duracao_ms": 28000,
+  "tokens": {"input": 5000, "output": 2000},
+  "modelo": "claude-opus-4-5",
+  "analise": { ... },          // JSON estruturado completo
+  "sugestoes": {
+    "documentos": [...],
+    "acoes": [...]
+  }
+}
+```
+
+A análise é gravada automaticamente em `themis.processo_analise` com:
+- `origem='agente_ia'`
+- `validado_por_advogado=false` (advogado precisa clicar "validar" depois)
+- `versao` incrementada a partir da última
+
+Audit log entry em `themis.audit_log` com tokens, modelo, duração, filename.
+
+## Frontend
+- Novo módulo: `torre-lex/src/lex-ia-analise.js`
+- Botão **⚡ Analisar com IA** no painel de Análise (cor bronze de destaque)
+- Modal com dropzone para upload PDF (drag-and-drop ou click)
+- Conversão PDF → base64 no browser (FileReader)
+- Mostra preview do JSON estruturado retornado
+- Botão "Aceitar e popular X docs + Y ações" cria entries em
+  `themis.processo_docs` e `themis.processo_acoes` automaticamente
+- Refresh dos painéis irmãos ao concluir (Análise + Docs + Ações)
+
+## URLs e bundles
+- Frontend: https://lex.zzyon.com (200, bundle `index-CCSMAYR4.js`)
+- Build: 290 KB JS / 10 KB CSS / 56 modules (cresceu 9 KB com módulo IA)
+
+## Schema do JSON que a IA retorna
+
+System prompt da edge function impõe schema rígido:
+```
+risco, risco_justificativa, valor_condenacao_estimado,
+valor_acordo_aceitavel, valor_provisao_recomendado,
+fato_gerador_resumo, fato_gerador_data, fato_gerador_local,
+fato_gerador_envolvidos, pedidos[], estrategia_defesa,
+teses_defensivas[], documentos_sugeridos[], acoes_sugeridas[]
+```
+
+Pedidos têm tipo + valor + fundamento.
+Teses têm tese + fundamento_legal (CLT art X / Súmula Y).
+Documentos têm categoria + título + descrição + obrigatorio.
+Ações têm título + descrição + tipo + prioridade + prazo_dias (offset).
+
+## Por que Opus 4.5 e não 4.7
+Opus 4.7 ainda pode ter inconsistência em runtime de edge function (Deno + JSR).
+Opus 4.5 é estável e o ganho de qualidade do 4.7 não compensa o risco em prod.
+Trocar para 4.7 depois de validação cuidadosa de 5-10 análises com 4.5.
+
+## Custo previsto e mitigação
+
+**Por análise**: US$ 0,30-0,50.
+**Para 6 processos atuais**: ~US$ 2,50.
+**Para escala 100 processos**: ~US$ 40.
+
+**Sem rate limit no frontend** — não há controle de quantas vezes alguém pode clicar "Analisar". Mitigação para Fase B.1:
+- Frontend pode mostrar versão atual no painel e desabilitar o botão se a última análise foi há <24h
+- Edge function pode rejeitar se ultima_analise_ia < N minutos atrás
+
+**Why:** Rubens pediu Fase B (IA preenchendo automaticamente análise + docs + plano). Backend (edge function) + frontend (botão + modal preview) entregues. Aguarda secret ANTHROPIC_API_KEY no Supabase para ativar.
+
+**How to apply:**
+- Antes de testar com PDF real: confirmar secret setado no dashboard.
+- Primeira execução com PDF do Vanilson valida pipeline (PDF está em /Users/rubens2/Desktop/12. JURIDICO/Processos/).
+- Análise gravada NÃO é definitiva — frontend mostra como "PRELIMINAR" até alguém validar. Botão de validação ainda não existe — Fase B.2.
+- Documentos e ações sugeridos são criados como pendente/aberta — usuário pode ajustar status manualmente nos painéis.
+
+## Bug fix 2026-05-08 — "Failed to fetch" no upload de PDF
+
+**Sintoma**: ao clicar em "⚡ Analisar com IA" e anexar PDF, modal mostrava "Falha: Failed to fetch" antes do upload começar.
+
+**Causa raiz**:
+1. `<script type="module" src=".mjs">` carrega ES module mas **não expõe globals** — `window.pdfjsLib` permanecia undefined depois do `onload`.
+2. Fallback usava `import('https://cdn.jsdelivr.net/...pdf.min.mjs')` — dynamic import cross-origin. Em produção Vercel, qualquer redirect ou header CORS faltante derruba com "Failed to fetch".
+
+**Fix aplicado** (`torre-lex/src/lex-ia-analise.js`): trocar pdfjs-dist v4.7.76 (ESM-only) → **v3.11.174 (UMD legacy)** que expõe `window.pdfjsLib` como global ao carregar via `<script>` regular. Removido dynamic import. URLs CDN:
+- `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js` (lib)
+- `https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js` (worker)
+
+**Smoke test em prod**: parsing de PDF mínimo retornou texto correto via preview MCP. Bundle pulou 281 KB → 292 KB.
+
+**Como aplicar lição em outros torre-***: nunca usar dynamic `import()` de URL externa em código que vai pra Vercel. Sempre **`<script>` UMD** carregado on-demand via `loadScriptOnce()` helper.
+
+---
+
+<small><em>Importado automaticamente da memória institucional: <code>zzyon_lex_fase_b_ia.md</code></em></small>
