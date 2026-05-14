@@ -1,0 +1,82 @@
+---
+title: "Painel ZZYON Admin"
+description: "Comandos operacionais Mac mini disparados via web · sem SSH · auditados · papel TI ou Diretoria"
+---
+
+URL: `https://app.zzyon.com/platform/#admin` (precisa login `@icaroexpress.com`).
+
+## O que faz
+
+Painel web com **botões pré-aprovados** que disparam comandos operacionais no Mac mini sem precisar SSH. Cada click insere uma row em `zzyon_admin_commands`, daemon DAEDALUS no Mac mini executa via subprocess e atualiza o resultado.
+
+## Para quem
+
+Quem tem papel `TI` ou `DIRETORIA` em `usuario_perfil` em ZYONCS. RPC valida antes de inserir comando.
+
+## Comandos iniciais (v0)
+
+| Comando | Quando usar | Destrutivo? |
+|---|---|---|
+| **PM2 status geral** | Ver agentes rodando + CPU/RAM | não |
+| **Logs Cláudio (100 linhas)** | Investigar problema de atendimento WhatsApp | não |
+| **Reiniciar Cláudio** | Cláudio travou/parou de responder | ⚠️ sim |
+| **Crons ZZYON status** | Saber se importer FAT-JC, RA1000, etc. estão agendados | não |
+| **Rodar FAT-JC agora** | Forçar nova importação fora do 06h diário | ⚠️ sim |
+| **Log FAT-JC (50 linhas)** | Conferir última execução | não |
+| **Evolution API status** | Saber se WhatsApp gateway está OK | não |
+| **Health check Mac mini** | Disk + uptime + top processos | não |
+
+Comandos destrutivos exigem dupla confirmação no navegador.
+
+## Fluxo de execução
+
+1. Você clica no botão
+2. RPC `request_admin_command` valida papel + insere row pending
+3. Daemon Mac mini (poll 5s) busca o pending
+4. Executa via subprocess com timeout
+5. Resultado aparece em "Histórico" abaixo dos botões
+6. Toast confirma sucesso/falha
+
+Tempo total: 5-30s (depende do timeout do comando).
+
+## Adicionar comando novo
+
+Inserir em `zzyon_admin_command_allowlist`:
+
+```sql
+INSERT INTO zzyon_admin_command_allowlist
+  (command_id, label, description, shell_cmd, timeout_seconds, destructive)
+VALUES (
+  'meu_comando_novo',
+  'Label visível',
+  'O que esse comando faz',
+  '/path/to/binary arg1 arg2',
+  30,
+  false
+);
+```
+
+Sem precisar redeploy do daemon — ele lê a allowlist a cada execução.
+
+## Segurança
+
+- Mac mini NÃO exposto na internet (Tailscale-only)
+- shell_cmd vem da allowlist (server-side), NUNCA do usuário
+- Comandos rodam no user `rubens` no Mac mini com o sudoers do plano [Acesso ao Mac mini](/docs/infra/acesso-mac-mini)
+- Logs de comando ficam em `zzyon_admin_commands` (auditoria perpétua)
+- Logs do daemon em `~/zyon-agents/logs/admin_runner.{out,err}.log`
+
+## Arquivos
+
+- Migration: aplicada em ZYONCS via `apply_migration zzyon_admin_commands_v0`
+- Daemon: [`zyon-agents/daedalus/admin_runner.py`](https://github.com/ZZYONBR/zyon-agents/blob/main/daedalus/admin_runner.py)
+- Launchd: [`zyon-agents/daedalus/infra/launchd/com.zzyon.daedalus.admin-runner.plist`](https://github.com/ZZYONBR/zyon-agents/blob/main/daedalus/infra/launchd/com.zzyon.daedalus.admin-runner.plist)
+- UI: [`zzyon-platform/torre-platform/src/main.js`](https://github.com/ZZYONBR/zzyon-platform/blob/main/torre-platform/src/main.js) (função `loadAdmin`)
+- Runbook deploy: [`zyon-agents/daedalus/README_ADMIN_RUNNER.md`](https://github.com/ZZYONBR/zyon-agents/blob/main/daedalus/README_ADMIN_RUNNER.md)
+
+## Pendências
+
+- Supabase Realtime no painel (hoje polla 2s após click)
+- SUPABASE_SERVICE_KEY via Vault em vez de env var
+- Backoff exponencial em falha do daemon
+- Audit log append-only separado (`daedalus.admin_audit_log`)
